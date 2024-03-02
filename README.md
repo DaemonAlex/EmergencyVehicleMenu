@@ -47,15 +47,5 @@ ALTER TABLE `owned_vehicles`
 ADD COLUMN `vehicle_color` VARCHAR(255) NULL AFTER `plate`,
 ADD COLUMN `vehicle_livery` INT(11) NULL AFTER `vehicle_color`,
 ADD COLUMN `custom_mod` TEXT NULL AFTER `vehicle_livery`;
-
-## Usage
-- Players with the 'police' job can use the `/modvehicle` command while inside an emergency vehicle to access the modification menu. Performance modifications are applied automatically, and further customizations can be made through the menu.
-
-## Support
-- For issues, suggestions, or contributions, please use GitHub issues and pull requests. Community support is available through the QBCore and OX libraries' official Discord channels.
-
-*Thank you for using or contributing!
-
-This script is free to edit and use in anyway you see fit.. 
-
+--
 
