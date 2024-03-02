@@ -44,6 +44,8 @@ Add the following line to your `server.cfg` file to ensure the resource is start
 ## Support
 - For issues, suggestions, or contributions, please use GitHub issues and pull requests. Community support is available through the QBCore and OX libraries' official Discord channels.
 
-*Thank you for using or contributing to the Police Vehicle Modification System!*
+*Thank you for using or contributing!
+
+This script is free to edit and use in anyway you see fit.. 
 
 
