@@ -1,4 +1,4 @@
-# Police Vehicle Modification System for QBCore
+# Police Vehicle Modification System for QBCore/QBX
 
 This resource enables a comprehensive vehicle modification system for FiveM servers running the QBCore framework, specifically tailored for emergency vehicles. Players with the 'police' job can automatically enhance their vehicle's performance mods to level 4 upon accessing the modification menu and further customize their vehicles with skins and extras.
 
