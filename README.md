@@ -33,6 +33,7 @@ Extend your `owned_vehicles` table in QBCore's database with additional columns 
 ### Resource Registration
 Add the following line to your `server.cfg` file to ensure the resource is started with your server: 
 
-## ensure police-vehicle-modification-system
+# ensure vehicle-mod-menu
+
 
 
