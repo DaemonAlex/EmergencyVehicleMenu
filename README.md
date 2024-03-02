@@ -1,53 +1,44 @@
 # Police Vehicle Modification System for QBCore/QBX
 
-This resource enables a comprehensive vehicle modification system for FiveM servers running the QBCore framework, specifically tailored for emergency vehicles. Players with the 'police' job can automatically enhance their vehicle's performance mods to level 4 upon accessing the modification menu and further customize their vehicles with skins and extras.
+This FiveM resource enables a comprehensive vehicle modification system specifically tailored for emergency vehicles. Designed for servers running the QBCore framework, it allows players with the 'police' job to enhance their vehicle's performance and customize appearances through an intuitive menu.
 
 ## Requirements
 
-- [QBCore Framework](https://github.com/qbcore-framework)
-- [OX MySQL](https://github.com/overextended/oxmysql) for database operations
-- [OX Lib](https://github.com/overextended/ox_lib) for UI components
+- QBCore Framework
+- OX MySQL
 
 ## Features
 
-- Automatic performance modifications to level 4 for emergency vehicles
-- Dynamic menu generation for selecting vehicle skins and toggling extras
-- Persistence of vehicle modifications using QBCore's database structure
-- Seamless integration with QBCore's job system for role-restricted access
+- Performance enhancements up to level 4 for emergency vehicles.
+- Customizable skins and extras for vehicle appearance.
 
 ## Installation
 
-1. **Clone or Download**: Clone this repository or download it as a ZIP file and extract it into your server's `resources` directory.
-   
-   ```bash
-   git clone https://github.com/yourgithubusername/police-vehicle-modification-system.git
+1. Ensure QBCore and OX MySQL are properly installed and configured on your server.
+2. Clone this repository into your server's resources folder.
+3. Add `ensure PoliceVehicleMenu` to your server.cfg.
+4. Import any necessary SQL files to your database.
 
 ## Configuration
 
-### Configure the Resource
-Place the extracted folder into your `resources/[qb]` directory. Ensure you rename the folder to `police-vehicle-modification-system` if it is not already named as such.
-
-### Database Setup
-Extend your `owned_vehicles` table in QBCore's database with additional columns for vehicle modifications (e.g., `vehicle_color`, `vehicle_livery`, `custom_mod`). Use the provided SQL statements to make these adjustments.
-
-```sql
-ALTER TABLE `owned_vehicles`
-ADD COLUMN `vehicle_color` VARCHAR(255) NULL AFTER `plate`,
-ADD COLUMN `vehicle_livery` INT(11) NULL AFTER `vehicle_color`,
-ADD COLUMN `custom_mod` TEXT NULL AFTER `vehicle_livery`;
-```
-### Resource Registration
-Add the following line to your `server.cfg` file to ensure the resource is started with your server: 
-
-# ensure vehicle-mod-menu
+Edit the `config.lua` file to specify available police vehicles, skin ranges, and extra options. This allows for extensive customization to fit server themes.
 
 ## Usage
 
-Players with the 'police' job can use the `/modvehicle` command while inside an emergency vehicle to access the modification menu. Performance modifications are applied automatically, and further customizations can be made through the menu.
+In-game, players with the 'police' job can access the modification menu by using the `/modvehicle` command near their assigned emergency vehicles.
 
-## Support
+## Troubleshooting
 
-For issues, suggestions, or contributions, please use GitHub issues and pull requests. Community support is available through the QBCore and OX libraries' official Discord channels.
+For common issues, such as missing vehicles or menu access problems, verify your server's configuration and ensure all dependencies are up to date.
+
+## Contributing
+
+Contributions are welcome! Please submit pull requests or issues on GitHub for any features or fixes.
+
+## License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
 
 
 
