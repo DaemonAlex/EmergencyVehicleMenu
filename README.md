@@ -31,5 +31,9 @@ Place the extracted folder into your `resources/[qb]` directory. Ensure you rena
 Extend your `owned_vehicles` table in QBCore's database with additional columns for vehicle modifications (e.g., `vehicle_color`, `vehicle_livery`, `custom_mod`). Use the provided SQL statements to make these adjustments.
 
 ### Resource Registration
-Add the following line to your `server.cfg` file to ensure the resource is started with your server:
+Add the following line to your `server.cfg` file to ensure the resource is started with your server: 
+perl
+Copy code
+ensure police-vehicle-modification-system
+
 
