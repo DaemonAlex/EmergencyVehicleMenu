@@ -29,23 +29,26 @@ Place the extracted folder into your `resources/[qb]` directory. Ensure you rena
 
 ### Database Setup
 Extend your `owned_vehicles` table in QBCore's database with additional columns for vehicle modifications (e.g., `vehicle_color`, `vehicle_livery`, `custom_mod`). Use the provided SQL statements to make these adjustments.
+``sql
+ALTER TABLE `owned_vehicles`
+ADD COLUMN `vehicle_color` VARCHAR(255) NULL AFTER `plate`,
+ADD COLUMN `vehicle_livery` INT(11) NULL AFTER `vehicle_color`,
+ADD COLUMN `custom_mod` TEXT NULL AFTER `vehicle_livery`;
 
 ### Resource Registration
 Add the following line to your `server.cfg` file to ensure the resource is started with your server: 
 
 # ensure vehicle-mod-menu
 
-## Dependencies
-- Make sure you have `oxmysql`, `ox_lib`, and the latest version of `QBCore` installed and properly configured on your server.
+## Usage
 
-- Database Setup
+Players with the 'police' job can use the `/modvehicle` command while inside an emergency vehicle to access the modification menu. Performance modifications are applied automatically, and further customizations can be made through the menu.
 
-Extend your `owned_vehicles` table in QBCore's database with additional columns for vehicle modifications (`vehicle_color`, `vehicle_livery`, `custom_mod`). Execute the following SQL statements in your MariaDB to make these adjustments:
+## Support
 
-```sql
-ALTER TABLE `owned_vehicles`
-ADD COLUMN `vehicle_color` VARCHAR(255) NULL AFTER `plate`,
-ADD COLUMN `vehicle_livery` INT(11) NULL AFTER `vehicle_color`,
-ADD COLUMN `custom_mod` TEXT NULL AFTER `vehicle_livery`;
---
+For issues, suggestions, or contributions, please use GitHub issues and pull requests. Community support is available through the QBCore and OX libraries' official Discord channels.
+
+
+
+
 
