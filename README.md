@@ -35,5 +35,15 @@ Add the following line to your `server.cfg` file to ensure the resource is start
 
 # ensure vehicle-mod-menu
 
+## Dependencies
+- Make sure you have `oxmysql`, `ox_lib`, and the latest version of `QBCore` installed and properly configured on your server.
+
+## Usage
+- Players with the 'police' job can use the `/modvehicle` command while inside an emergency vehicle to access the modification menu. Performance modifications are applied automatically, and further customizations can be made through the menu.
+
+## Support
+- For issues, suggestions, or contributions, please use GitHub issues and pull requests. Community support is available through the QBCore and OX libraries' official Discord channels.
+
+*Thank you for using or contributing to the Police Vehicle Modification System!*
 
 
