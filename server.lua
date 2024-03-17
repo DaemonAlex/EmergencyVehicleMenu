@@ -10,11 +10,5 @@ AddEventHandler('vehiclemods:server:verifyPoliceJob', function()
             TriggerClientEvent('vehiclemods:client:openVehicleModMenu', src)
             print("Vehicle mod menu opened for player ID: " .. src)
         else
-            TriggerClientEvent('QBCore:Notify', src, 'This menu is only for Emergency vehicles.', 'error')
-            print("Unauthorized vehicle mod menu access attempt by player ID: " .. src)
-        end
-    else
-        print("Failed to retrieve player object for source ID: " .. src)
-    end
-end)
+...
 
