@@ -15,3 +15,4 @@ Config.PoliceVehicles = {
 
 Config.SkinsRange = {min = 1, max = 10}
 Config.ExtrasRange = {min = 1, max = 20}
+...
