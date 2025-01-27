@@ -3,8 +3,17 @@ local QBCore = exports['qb-core']:GetCoreObject()
 -- Debug: Check if ox_lib is loaded
 print("Checking if ox_lib is loaded...")
 if not lib then
-    print("^1[ERROR] ox_lib is not loaded. Please ensure ox_lib is installed and started before PoliceVehicleMenu.^7")
-    return
+    print("^1[ERROR] ox_lib is not loaded. Attempting to initialize it manually...^7")
+    
+    -- Attempt to initialize ox_lib manually
+    lib = exports.ox_lib:init()
+    
+    if not lib then
+        print("^1[ERROR] Failed to initialize ox_lib. Please ensure ox_lib is installed and started before PoliceVehicleMenu.^7")
+        return
+    else
+        print("^2[SUCCESS] ox_lib initialized manually.^7")
+    end
 else
     print("^2[SUCCESS] ox_lib is loaded and ready to use.^7")
 end
