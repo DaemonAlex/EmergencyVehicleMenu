@@ -94,6 +94,10 @@ AddEventHandler('vehiclemods:client:upgradePerformance', function()
         type = 'success',
         duration = 5000
     })
+
+    -- Save modifications to the database
+    local vehicleModel = GetDisplayNameFromVehicleModel(GetEntityModel(vehicle)):lower()
+    TriggerServerEvent('vehiclemods:server:saveModifications', vehicleModel, 4, nil, nil)
 end)
 
 -- Event to handle skin changes
@@ -108,6 +112,10 @@ AddEventHandler('vehiclemods:client:changeSkin', function()
         type = 'success',
         duration = 5000
     })
+
+    -- Save modifications to the database
+    local vehicleModel = GetDisplayNameFromVehicleModel(GetEntityModel(vehicle)):lower()
+    TriggerServerEvent('vehiclemods:server:saveModifications', vehicleModel, nil, skin, nil)
 end)
 
 -- Event to handle toggling extras
@@ -122,4 +130,34 @@ AddEventHandler('vehiclemods:client:toggleExtras', function()
         type = 'success',
         duration = 5000
     })
+
+    -- Save modifications to the database
+    local vehicleModel = GetDisplayNameFromVehicleModel(GetEntityModel(vehicle)):lower()
+    TriggerServerEvent('vehiclemods:server:saveModifications', vehicleModel, nil, nil, tostring(extra))
+end)
+
+-- Event to apply saved modifications when entering a vehicle
+RegisterNetEvent('vehiclemods:client:applyModifications')
+AddEventHandler('vehiclemods:client:applyModifications', function(data)
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    if DoesEntityExist(vehicle) then
+        -- Apply performance level
+        SetVehicleModKit(vehicle, 0)
+        for i = 0, 49 do
+            SetVehicleMod(vehicle, i, data.performance_level, false)
+        end
+
+        -- Apply skin
+        if data.skin then
+            SetVehicleLivery(vehicle, data.skin)
+        end
+
+        -- Apply extras
+        if data.extras then
+            local extras = json.decode(data.extras)
+            for _, extra in pairs(extras) do
+                SetVehicleExtra(vehicle, extra, false)
+            end
+        end
+    end
 end)
