@@ -51,30 +51,36 @@ function OpenVehicleModMenu()
         {
             title = 'Performance Upgrades',
             description = 'Upgrade your vehicle\'s performance.',
-            event = 'vehiclemods:client:upgradePerformance',
-            args = {}
+            onSelect = function()
+                TriggerEvent('vehiclemods:client:upgradePerformance')
+            end
         },
         {
             title = 'Change Skin',
             description = 'Change your vehicle\'s appearance.',
-            event = 'vehiclemods:client:changeSkin',
-            args = {}
+            onSelect = function()
+                TriggerEvent('vehiclemods:client:changeSkin')
+            end
         },
         {
             title = 'Toggle Extras',
             description = 'Enable or disable vehicle extras.',
-            event = 'vehiclemods:client:toggleExtras',
-            args = {}
+            onSelect = function()
+                TriggerEvent('vehiclemods:client:toggleExtras')
+            end
         }
     }
 
-    exports.ox_lib:showContext('vehicleModMenu', {
+    lib.registerContext({
         id = 'vehicleModMenu',
         title = 'Vehicle Modification Menu',
         options = options
     })
+
+    lib.showContext('vehicleModMenu')
 end
 
+-- Event to handle performance upgrades
 RegisterNetEvent('vehiclemods:client:upgradePerformance')
 AddEventHandler('vehiclemods:client:upgradePerformance', function()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
@@ -85,6 +91,34 @@ AddEventHandler('vehiclemods:client:upgradePerformance', function()
     exports.ox_lib:notify({
         title = 'Success',
         description = 'Vehicle performance upgraded to level 4.',
+        type = 'success',
+        duration = 5000
+    })
+end)
+
+-- Event to handle skin changes
+RegisterNetEvent('vehiclemods:client:changeSkin')
+AddEventHandler('vehiclemods:client:changeSkin', function()
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    local skin = math.random(Config.SkinsRange.min, Config.SkinsRange.max)
+    SetVehicleLivery(vehicle, skin)
+    exports.ox_lib:notify({
+        title = 'Success',
+        description = 'Vehicle skin changed to ' .. skin .. '.',
+        type = 'success',
+        duration = 5000
+    })
+end)
+
+-- Event to handle toggling extras
+RegisterNetEvent('vehiclemods:client:toggleExtras')
+AddEventHandler('vehiclemods:client:toggleExtras', function()
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    local extra = math.random(Config.ExtrasRange.min, Config.ExtrasRange.max)
+    SetVehicleExtra(vehicle, extra, false)
+    exports.ox_lib:notify({
+        title = 'Success',
+        description = 'Vehicle extra ' .. extra .. ' toggled.',
         type = 'success',
         duration = 5000
     })
