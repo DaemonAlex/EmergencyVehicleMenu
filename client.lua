@@ -1,7 +1,5 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
-local QBCore = exports['qb-core']:GetCoreObject()
-
 -- Debug: Check if ox_lib is loaded
 print("Checking if ox_lib is loaded...")
 if not lib then
