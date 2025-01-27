@@ -74,3 +74,18 @@ function OpenVehicleModMenu()
         options = options
     })
 end
+
+RegisterNetEvent('vehiclemods:client:upgradePerformance')
+AddEventHandler('vehiclemods:client:upgradePerformance', function()
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    SetVehicleModKit(vehicle, 0)
+    for i = 0, 49 do
+        SetVehicleMod(vehicle, i, GetNumVehicleMods(vehicle, i) - 1, false)
+    end
+    exports.ox_lib:notify({
+        title = 'Success',
+        description = 'Vehicle performance upgraded to level 4.',
+        type = 'success',
+        duration = 5000
+    })
+end)
