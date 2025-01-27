@@ -1,4 +1,4 @@
-QBCore = exports['qb-core']:GetCoreObject()
+local QBCore = exports['qb-core']:GetCoreObject()
 
 -- Event to verify the player's job
 RegisterNetEvent('vehiclemods:server:verifyPoliceJob')
@@ -23,4 +23,3 @@ AddEventHandler('vehiclemods:server:verifyPoliceJob', function()
         print("[PoliceVehicleMenu] Player not found. Player ID: " .. src)
     end
 end)
-
