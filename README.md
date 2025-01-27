@@ -1,26 +1,33 @@
-# Police Vehicle Modification System for QBCore/QBX
+Police Vehicle Modification System for QBCore/QBX
+This FiveM resource enables a comprehensive vehicle modification system specifically tailored for emergency vehicles. Designed for servers running the QBCore framework, it allows players with the police job to enhance their vehicle's performance and customize appearances through an intuitive menu.
 
-This FiveM resource enables a comprehensive vehicle modification system specifically tailored for emergency vehicles. Designed for servers running the QBCore framework, it allows players with the 'police' job to enhance their vehicle's performance and customize appearances through an intuitive menu.
+Requirements
+QBCore Framework
 
-## Requirements
+ox_lib
 
-- QBCore Framework
-- OX MySQL
+MySQL Database (MariaDB or MySQL)
 
-## Features
+Features
+Performance Upgrades: Upgrade emergency vehicles to level 4 performance.
 
-- Performance enhancements up to level 4 for emergency vehicles.
-- Customizable skins and extras for vehicle appearance.
+Custom Skins: Change vehicle appearances with customizable skins.
 
-## Installation
+Toggle Extras: Enable or disable vehicle extras.
 
-1. Ensure QBCore and OX MySQL are properly installed and configured on your server.
-2. Clone this repository into your server's resources folder.
-3. Add `ensure PoliceVehicleMenu` to your server.cfg.
-4. Import the following SQL to your Database
-  
-```
--- Check if the 'emergency_vehicle_mods' table exists, and create it if not
+Database Integration: Save and retrieve modifications for persistence.
+
+Installation
+Download the Resource:
+
+Clone or download this repository into your resources folder.
+
+Set Up the Database:
+
+Run the following SQL query in your database to create the emergency_vehicle_mods table:
+
+sql
+Copy
 CREATE TABLE IF NOT EXISTS `emergency_vehicle_mods` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `vehicle_model` VARCHAR(255) NOT NULL,
@@ -29,38 +36,70 @@ CREATE TABLE IF NOT EXISTS `emergency_vehicle_mods` (
   `extras` VARCHAR(255) DEFAULT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+Configure the Resource:
 
--- Insert example data (adjust or remove according to your needs)
-INSERT INTO `emergency_vehicle_mods` (`vehicle_model`, `performance_level`, `skin`, `extras`) VALUES
-('11caprice', 4, 1, '1,2,3'),
-('tahoe', 4, 2, '4,5,6'),
-('18charger', 4, 3, '7,8,9');
-```
--- Note: The above table and data insertion are examples.
--- Modify the structure and data according to your server specific requirements.
+Edit the config.lua file to specify available police vehicles, skin ranges, and extra options.
 
-## Configuration
+Add to server.cfg:
 
-Edit the `config.lua` file to specify available police vehicles, skin ranges, and extra options. This allows for extensive customization to fit server themes.
+Add the following line to your server.cfg:
 
-## Usage
+plaintext
+Copy
+ensure PoliceVehicleMenu
+Dependencies:
 
-In-game, players with the 'police' job can access the modification menu by using the `/modvehicle` command near their assigned emergency vehicles.
+Ensure ox_lib is installed and running on your server.
 
-## Troubleshooting
+Configuration
+config.lua
+Edit the config.lua file to customize the resource:
 
-For common issues, such as missing vehicles or menu access problems, verify your server's configuration and ensure all dependencies are up to date.
+Config.PoliceVehicles: Add or remove vehicle models allowed for modifications.
 
-## Contributing
+Config.SkinsRange: Define the range of available skins.
 
-Contributions are welcome! Please submit pull requests or issues on GitHub for any features or fixes.
+Config.ExtrasRange: Define the range of available extras.
 
-## License
+Example:
 
-Distributed under the MIT License. See `LICENSE` for more information.
+lua
+Copy
+Config.PoliceVehicles = {
+    '11caprice',
+    'tahoe',
+    '18charger'
+}
 
+Config.SkinsRange = {min = 1, max = 10}
+Config.ExtrasRange = {min = 1, max = 20}
+Usage
+In-Game Command:
 
+Use the /modvehicle command while inside an approved police vehicle to open the modification menu.
 
+Menu Options:
 
+Performance Upgrades: Upgrade your vehicle's performance to level 4.
 
+Change Skin: Apply a random skin to your vehicle.
 
+Toggle Extras: Enable or disable a random extra.
+
+Troubleshooting
+Menu Not Opening:
+
+Ensure ox_lib is installed and running.
+
+Verify the player has the police job.
+
+Modifications Not Saving:
+
+Check the database connection and ensure the emergency_vehicle_mods table exists.
+
+Errors in Console:
+
+Check the server console for any errors and ensure all dependencies are up to date.
+
+License
+This resource is distributed under the MIT License. See the LICENSE file for more information.
