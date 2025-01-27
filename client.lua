@@ -12,7 +12,7 @@ RegisterCommand('modvehicle', function()
         if IsVehicleInConfig(vehicleName) then
             TriggerServerEvent('vehiclemods:server:verifyPoliceJob')
         else
-            exports.ox_lib:notify({
+            lib.notify({
                 title = 'Error',
                 description = 'This menu is only for approved police vehicles.',
                 type = 'error',
@@ -20,7 +20,7 @@ RegisterCommand('modvehicle', function()
             })
         end
     else
-        exports.ox_lib:notify({
+        lib.notify({
             title = 'Error',
             description = 'You must be inside a vehicle to use this command.',
             type = 'error',
@@ -88,7 +88,7 @@ AddEventHandler('vehiclemods:client:upgradePerformance', function()
     for i = 0, 49 do
         SetVehicleMod(vehicle, i, GetNumVehicleMods(vehicle, i) - 1, false)
     end
-    exports.ox_lib:notify({
+    lib.notify({
         title = 'Success',
         description = 'Vehicle performance upgraded to level 4.',
         type = 'success',
@@ -106,7 +106,7 @@ AddEventHandler('vehiclemods:client:changeSkin', function()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
     local skin = math.random(Config.SkinsRange.min, Config.SkinsRange.max)
     SetVehicleLivery(vehicle, skin)
-    exports.ox_lib:notify({
+    lib.notify({
         title = 'Success',
         description = 'Vehicle skin changed to ' .. skin .. '.',
         type = 'success',
@@ -124,7 +124,7 @@ AddEventHandler('vehiclemods:client:toggleExtras', function()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
     local extra = math.random(Config.ExtrasRange.min, Config.ExtrasRange.max)
     SetVehicleExtra(vehicle, extra, false)
-    exports.ox_lib:notify({
+    lib.notify({
         title = 'Success',
         description = 'Vehicle extra ' .. extra .. ' toggled.',
         type = 'success',
