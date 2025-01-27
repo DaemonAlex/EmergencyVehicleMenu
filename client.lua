@@ -1,9 +1,14 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
--- Ensure ox_lib is loaded
+local QBCore = exports['qb-core']:GetCoreObject()
+
+-- Debug: Check if ox_lib is loaded
+print("Checking if ox_lib is loaded...")
 if not lib then
     print("^1[ERROR] ox_lib is not loaded. Please ensure ox_lib is installed and started before PoliceVehicleMenu.^7")
     return
+else
+    print("^2[SUCCESS] ox_lib is loaded and ready to use.^7")
 end
 
 -- Command to open the vehicle modification menu
