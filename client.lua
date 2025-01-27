@@ -1,5 +1,11 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
+-- Ensure ox_lib is loaded
+if not lib then
+    print("^1[ERROR] ox_lib is not loaded. Please ensure ox_lib is installed and started before PoliceVehicleMenu.^7")
+    return
+end
+
 -- Command to open the vehicle modification menu
 RegisterCommand('modvehicle', function()
     local ped = PlayerPedId()
