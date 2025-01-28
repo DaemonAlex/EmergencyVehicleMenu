@@ -28,7 +28,6 @@ RegisterCommand('modvehicle', function()
     end
 end)
 
--- Check if the vehicle is in the Config.PoliceVehicles list
 function IsVehicleInConfig(vehicleName)
     for _, v in pairs(Config.PoliceVehicles) do
         if v == vehicleName then
@@ -38,7 +37,6 @@ function IsVehicleInConfig(vehicleName)
     return false
 end
 
--- Main menu
 RegisterNetEvent('vehiclemods:client:openVehicleModMenu')
 AddEventHandler('vehiclemods:client:openVehicleModMenu', function()
     OpenVehicleModMenu()
@@ -95,7 +93,7 @@ function OpenLiveryMenu()
             title = 'Livery ' .. i,
             onSelect = function()
                 ApplyLivery(i)
-                OpenLiveryMenu() -- Reopen the menu
+                OpenLiveryMenu()
             end
         })
     end
@@ -213,26 +211,45 @@ function ToggleDoor(door)
     end
 end
 
--- Engine submenu
+-- Engine submenu with submenus for individual components
 function OpenEngineSubmenu()
-    local components = {
-        { title = 'Engine', modType = 11 },
-        { title = 'Brakes', modType = 12 },
-        { title = 'Transmission', modType = 13 },
-        { title = 'Suspension', modType = 15 },
-        { title = 'Turbo', modType = 18 }
-    }
-
-    local options = {}
-    for _, component in pairs(components) do
-        table.insert(options, {
-            title = 'Upgrade ' .. component.title,
+    local options = {
+        {
+            title = 'Engine Levels',
+            description = 'Upgrade engine levels 1-4.',
             onSelect = function()
-                UpgradeComponent(component.modType)
-                OpenEngineSubmenu()
+                OpenComponentSubmenu(11, 'Engine Level')
             end
-        })
-    end
+        },
+        {
+            title = 'Brakes Levels',
+            description = 'Upgrade brakes levels 1-4.',
+            onSelect = function()
+                OpenComponentSubmenu(12, 'Brakes Level')
+            end
+        },
+        {
+            title = 'Transmission Levels',
+            description = 'Upgrade transmission levels 1-4.',
+            onSelect = function()
+                OpenComponentSubmenu(13, 'Transmission Level')
+            end
+        },
+        {
+            title = 'Suspension Levels',
+            description = 'Upgrade suspension levels 1-4.',
+            onSelect = function()
+                OpenComponentSubmenu(15, 'Suspension Level')
+            end
+        },
+        {
+            title = 'Turbo',
+            description = 'Enable or disable turbo.',
+            onSelect = function()
+                ToggleTurbo()
+            end
+        }
+    }
 
     lib.registerContext({
         id = 'engineMenu',
@@ -245,14 +262,56 @@ function OpenEngineSubmenu()
     lib.showContext('engineMenu')
 end
 
-function UpgradeComponent(modType)
+-- Submenu for upgrading specific component levels (1-4)
+function OpenComponentSubmenu(modType, componentName)
+    local options = {}
+
+    for level = 1, 4 do
+        table.insert(options, {
+            title = componentName .. ' ' .. level,
+            onSelect = function()
+                ApplyComponentUpgrade(modType, level - 1) -- Levels start from 0 internally
+                OpenComponentSubmenu(modType, componentName)
+            end
+        })
+    end
+
+    lib.registerContext({
+        id = 'componentSubmenu_' .. modType,
+        title = componentName .. ' Levels',
+        options = options,
+        menu = 'engineMenu',
+        close = false
+    })
+
+    lib.showContext('componentSubmenu_' .. modType)
+end
+
+-- Function to apply the component upgrade
+function ApplyComponentUpgrade(modType, level)
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
     SetVehicleModKit(vehicle, 0)
-    SetVehicleMod(vehicle, modType, GetNumVehicleMods(vehicle, modType) - 1, false)
+    SetVehicleMod(vehicle, modType, level, false)
+
     lib.notify({
         title = 'Success',
-        description = 'Upgraded ' .. modType .. '.',
+        description = 'Upgraded to ' .. level + 1 .. '.',
         type = 'success',
+        duration = 5000
+    })
+end
+
+-- Turbo toggle
+function ToggleTurbo()
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    local turboEnabled = IsToggleModOn(vehicle, 18)
+
+    ToggleVehicleMod(vehicle, 18, not turboEnabled)
+
+    lib.notify({
+        title = 'Turbo',
+        description = turboEnabled and 'Turbo disabled.' or 'Turbo enabled!',
+        type = turboEnabled and 'error' or 'success',
         duration = 5000
     })
 end
