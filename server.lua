@@ -4,88 +4,65 @@ local ox_mysql = require('ox_mysql')
 -- Register NetEvent handlers for vehicle modifications
 AddEventHandler('vehiclemods:server:verifyPoliceJob', function(source)
     -- Verify if the player is a police officer
-    local player = GetPlayer(src)
-    if player and GetPlayerOccupation(player) ==  -- Assuming 1 represents a police job
-        TriggerClientEvent(source, 'vehiclemods:client:openVehicleModMenu')
+    local playerId = GetPlayerIdentifierFromId(source)
+    local player = Player(playerId)
+    if player then
+        local job = GetPlayerOccupation(player) -- Assuming 1 represents a police job
+        if job == 1 then -- Assuming 1 represents a police job
+            TriggerClientEvent('vehiclemods:client:openVehicleModMenu', source)
+        else
+            Print("[PoliceVehicleMenu] Player not found or invalid occupation.")
+        end
     else
-        Print("[PoliceVehicleMenu] Player not found or invalid occupation.")
-        return
+        Print("[PoliceVehicleMenu] Player not found.")
     end
 end)
 
 AddEventHandler('vehiclemods:server:saveModifications', function(source, vehicleModel, performanceLevel, skin, extras)
     -- Ensure source and parameters are valid
-    if not source or not IsValidPlayerSource(source) then
-        Print("[PoliceVehicleMenu] Invalid source ID:", source)
-        return false
-    end
-
-    try
-        local success, result = ox_mysql.query({
-            sql = "INSERT INTO `emergency_vehicle_mods` (`vehicle_model`, `performance_level`, `skin`, `extras`) VALUES (?, ?,)",
-            values = {
-                string: vehicleModel,
-                int: performanceLevel or 4, -- Default to 4 if not provided
-                string: skin,
-                string: extras
-            }
-        })
-        if not success and result then
-            Print("[PoliceVehicleMenu] Error saving vehicle modifications:", result)
-            return false
+    local playerId = GetPlayerIdentifierFromId(source)
+    if playerId and IsValidPlayerSource(playerId) then
+        try
+            local values = {string(vehicleModel), tonumber(performanceLevel or  string(skin), string(extras)}
+            local success, result = ox_mysql.query({
+                sql = "INSERT INTO `emergency_vehicle_mods` (`vehicle_model`, `performance_level`, `skin`, `extras`) VALUES (?, ?, ?, ?)",
+                values = values
+            })
+            if not success then
+                error(result)
+            end
+        catch
+            local exception = Get(GetLastError())
+            Print("[PoliceVehicleMenu] Error saving vehicle modifications: " .. tostring(exception))
         end
-
-        Print("[PoliceVehicleMenu] Successfully saved vehicle data for", vehicleModel, "with performance level", performanceLevel or 4, "and skin", skin)
-        return true
-    catch
-        local exception = GetExceptionInformation(GetLastError())
-        Print("[PoliceVehicleMenu] Error during database operation:", exception)
-        return false
+    else
+        Print("[PoliceVehicleMenu] Invalid source ID.")
     end
 end)
 
 AddEventHandler('vehiclemods:server:getModifications', function(source, vehicleModel)
-    -- Ensure source is valid
-    if not IsValidPlayerSource(source) then
-        Print("[PoliceVehicleMenu] Invalid source ID:", source)
-        return nil
-    end
-
-    try
-        local result = ox_mysql.query({
-            sql = "SELECT * FROM `emergency_vehicle_mods` WHERE `vehicle_model` = (?) ORDER BY `timestamp` DESC LIMIT 1",
-            values = {
-                string: vehicleModel
-            }
-        })
-
-        if not result then
-            Print("[PoliceVehicleMenu] No modification found for", vehicleModel)
-            return nil
+    -- Ensure valid source and parameters
+    local playerId = GetPlayerIdentifierFromId(source)
+    if playerId and IsValidPlayerSource(playerId) then
+        try
+            local result = {}
+            local querySuccess, queryResult = ox_mysql.query({
+                sql = "SELECT performance_level, skin, extras FROM emergency WHERE vehicle_model = ?",
+                values = {vehicleModel}
+            })
+            if not querySuccess then
+                error(queryResult)
+            else
+                for _, row in ipairs(queryResult) do
+                    table.insert(result, {performanceLevel = tonumber(row['performance_level']), skin = tostring(row['skin']), extras = tostring(row['extras'])})
+                end
+            end
+            TriggerClientEvent('vehiclemods:client:returnModifications', source, result)
+        catch
+            local exception = Get(GetLastError())
+            Print("[PoliceVehicleMenu] Error fetching vehicle modifications: " .. tostring(exception))
         end
-
-        -- Extract relevant data from the result set
-        local data = {}
-        data.timestamp = result[0]['timestamp']
-        data.performance_level = result[0]['performance_level'] or 4
-        data.skin = result[0]['skin']
-        data.extras = result[0]['extras']
-
-        Print("[PoliceVehicleMenu] Retrieved vehicle modification for", vehicleModel, "with performance level", data.performance_level)
-        return data
-
-    catch
-        local exception = GetExceptionInformation(GetLastError())
-        Print("[PoliceVehicleMenu] Error during database query:", exception)
-        return nil
-    end
-end)
-
--- Ensure event handlers are properly registered and cleaned up
-AddEventHandler('onPlayerDisconnect', function(playerID)
-    -- Cleanup resources if the player disconnects while using the menu
-    if IsEventValid then
-        CancelEvent("vehicleclient:openVehicleModMenu")
-        -- Any other cleanup operations can be added here
+    else
+        Print("[PoliceVehicleMenu] Invalid source ID.")
     end
 end)
