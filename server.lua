@@ -49,8 +49,11 @@ AddEventHandler('vehiclemods:server:getModifications', function(vehicleModel)
 
     -- Use oxmysql to fetch data from the database
     exports.oxmysql:fetch(query, params, function(result)
-        if result[1] then
-            TriggerClientEvent('vehiclemods:client:applyModifications', src, result[1])
+        -- Ensure result is not nil and is a table with at least one record
+        if result and #result > 0 then
+            -- Access the first result (most recent record)
+            local modData = result[1]  -- result is a table, and we're accessing the first row
+            TriggerClientEvent('vehiclemods:client:applyModifications', src, modData)
         else
             print("[PoliceVehicleMenu] No modifications found for vehicle: " .. vehicleModel)
         end
