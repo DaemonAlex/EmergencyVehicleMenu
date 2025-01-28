@@ -247,7 +247,7 @@ function OpenEngineSubmenu()
         table.insert(options, {
             title = 'Engine Level ' .. i,
             onSelect = function()
-                ApplyComponentUpgrade(11, i - 1) -- Levels start from 0 internally
+                ApplyComponentUpgrade(11, i - 1) -- Engine mod type (11) levels 0-3
                 OpenEngineSubmenu()
             end
         })
@@ -272,7 +272,7 @@ function OpenSuspensionSubmenu()
         table.insert(options, {
             title = 'Suspension Level ' .. i,
             onSelect = function()
-                ApplyComponentUpgrade(15, i - 1) -- Levels start from 0 internally
+                ApplyComponentUpgrade(15, i - 1) -- Suspension mod type (15) levels 0-3
                 OpenSuspensionSubmenu()
             end
         })
@@ -297,7 +297,7 @@ function OpenTransmissionSubmenu()
         table.insert(options, {
             title = 'Transmission Level ' .. i,
             onSelect = function()
-                ApplyComponentUpgrade(13, i - 1) -- Levels start from 0 internally
+                ApplyComponentUpgrade(13, i - 1) -- Transmission mod type (13) levels 0-3
                 OpenTransmissionSubmenu()
             end
         })
@@ -322,7 +322,7 @@ function OpenBrakesSubmenu()
         table.insert(options, {
             title = 'Brakes Level ' .. i,
             onSelect = function()
-                ApplyComponentUpgrade(12, i - 1) -- Levels start from 0 internally
+                ApplyComponentUpgrade(12, i - 1) -- Brakes mod type (12) levels 0-3
                 OpenBrakesSubmenu()
             end
         })
@@ -337,4 +337,30 @@ function OpenBrakesSubmenu()
     })
 
     lib.showContext('brakesMenu')
+end
+
+-- Apply mod to vehicle
+function ApplyComponentUpgrade(modType, level)
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    SetVehicleMod(vehicle, modType, level, true)
+    lib.notify({
+        title = 'Upgrade Applied',
+        description = 'Applied level ' .. (level + 1) .. ' upgrade.',
+        type = 'success',
+        duration = 5000
+    })
+end
+
+-- Turbo toggle
+function ToggleTurbo()
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    local currentTurbo = GetVehicleMod(vehicle, 18) -- Turbo mod type (18)
+    local newTurbo = currentTurbo == 0 and 1 or 0
+    SetVehicleMod(vehicle, 18, newTurbo, true)
+    lib.notify({
+        title = 'Turbo ' .. (newTurbo == 1 and 'Enabled' or 'Disabled'),
+        description = 'Turbo has been ' .. (newTurbo == 1 and 'enabled' or 'disabled') .. '.',
+        type = 'success',
+        duration = 5000
+    })
 end
