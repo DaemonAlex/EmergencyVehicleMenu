@@ -24,15 +24,15 @@ AddEventHandler('vehiclemods:server:verifyPoliceJob', function()
     end
 end)
 
--- Event to save modifications to the database using oxmysql
+-- Event to save modifications to the database
 RegisterNetEvent('vehiclemods:server:saveModifications')
 AddEventHandler('vehiclemods:server:saveModifications', function(vehicleModel, performanceLevel, skin, extras)
     local query = 'INSERT INTO emergency_vehicle_mods (vehicle_model, performance_level, skin, extras) VALUES (?, ?, ?, ?)'
     local params = {vehicleModel, performanceLevel or 4, skin, extras}
 
-    -- Use oxmysql to execute the query
-    exports.oxmysql:execute(query, params, function(rowsChanged)
-        if rowsChanged > 0 then
+    -- Execute the query using oxmysql
+    exports.oxmysql:execute(query, params, function(result)
+        if result then
             print("[PoliceVehicleMenu] Modifications saved for vehicle: " .. vehicleModel)
         else
             print("[PoliceVehicleMenu] Failed to save modifications for vehicle: " .. vehicleModel)
@@ -40,20 +40,19 @@ AddEventHandler('vehiclemods:server:saveModifications', function(vehicleModel, p
     end)
 end)
 
--- Event to retrieve modifications from the database using oxmysql
+-- Event to retrieve modifications from the database
 RegisterNetEvent('vehiclemods:server:getModifications')
 AddEventHandler('vehiclemods:server:getModifications', function(vehicleModel)
     local src = source
     local query = 'SELECT * FROM emergency_vehicle_mods WHERE vehicle_model = ? ORDER BY created_at DESC LIMIT 1'
     local params = {vehicleModel}
 
-    -- Use oxmysql to fetch data from the database
+    -- Fetch the data using oxmysql
     exports.oxmysql:fetch(query, params, function(result)
-        -- Ensure result is not nil and is a table with at least one record
-        if result and #result > 0 then
-            -- Access the first result (most recent record)
-            local modData = result[1]  -- result is a table, and we're accessing the first row
+        if result and type(result) == 'table' and #result > 0 then
+            local modData = result[1]
             TriggerClientEvent('vehiclemods:client:applyModifications', src, modData)
+            print("[PoliceVehicleMenu] Modifications retrieved and sent to client for vehicle: " .. vehicleModel)
         else
             print("[PoliceVehicleMenu] No modifications found for vehicle: " .. vehicleModel)
         end
