@@ -60,28 +60,35 @@ AddEventHandler('vehiclemods:client:openVehicleModMenu', function()
     OpenVehicleModMenu()
 end)
 
--- Function to open the modification menu using ox_lib
+-- Main menu
 function OpenVehicleModMenu()
     local options = {
         {
-            title = 'Performance Upgrades',
-            description = 'Select performance modifications.',
+            title = 'Livery',
+            description = 'Select a vehicle livery.',
             onSelect = function()
-                OpenPerformanceMenu()
+                OpenLiveryMenu()
             end
         },
         {
-            title = 'Change Skin',
-            description = 'Select vehicle skin.',
-            onSelect = function()
-                OpenSkinMenu()
-            end
-        },
-        {
-            title = 'Toggle Extras',
-            description = 'Select vehicle extras.',
+            title = 'Extras',
+            description = 'Enable or disable vehicle extras.',
             onSelect = function()
                 OpenExtrasMenu()
+            end
+        },
+        {
+            title = 'Doors',
+            description = 'Open or close doors and trunk.',
+            onSelect = function()
+                OpenDoorsMenu()
+            end
+        },
+        {
+            title = 'Engine Upgrades',
+            description = 'Upgrade your vehicle\'s engine performance.',
+            onSelect = function()
+                UpgradeEngine()
             end
         }
     }
@@ -95,90 +102,45 @@ function OpenVehicleModMenu()
     lib.showContext('vehicleModMenu')
 end
 
--- Submenu for performance upgrades
-function OpenPerformanceMenu()
+-- Livery menu
+function OpenLiveryMenu()
     local options = {}
 
-    for i = 0, 4 do
+    for i = 0, 3 do -- 4 livery options
         table.insert(options, {
-            title = 'Performance Level ' .. i,
+            title = 'Livery ' .. i,
             onSelect = function()
-                UpgradePerformance(i)
+                ApplyLivery(i)
             end
         })
     end
 
     lib.registerContext({
-        id = 'performanceMenu',
-        title = 'Performance Upgrades',
+        id = 'liveryMenu',
+        title = 'Select Livery',
         options = options,
-        menu = 'vehicleModMenu' -- Go back to the main menu
+        menu = 'vehicleModMenu'
     })
 
-    lib.showContext('performanceMenu')
+    lib.showContext('liveryMenu')
 end
 
-function UpgradePerformance(level)
+function ApplyLivery(livery)
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
-    SetVehicleModKit(vehicle, 0)
-    for i = 0, 49 do
-        SetVehicleMod(vehicle, i, level, false)
-    end
+    SetVehicleLivery(vehicle, livery)
     lib.notify({
         title = 'Success',
-        description = 'Vehicle performance upgraded to level ' .. level .. '.',
+        description = 'Applied Livery ' .. livery .. '.',
         type = 'success',
         duration = 5000
     })
-
-    -- Save modifications to the database
-    local vehicleModel = GetDisplayNameFromVehicleModel(GetEntityModel(vehicle)):lower()
-    TriggerServerEvent('vehiclemods:server:saveModifications', vehicleModel, level, nil, nil)
 end
 
--- Submenu for skin changes
-function OpenSkinMenu()
-    local options = {}
-
-    for i = Config.SkinsRange.min, Config.SkinsRange.max do
-        table.insert(options, {
-            title = 'Skin ' .. i,
-            onSelect = function()
-                ChangeSkin(i)
-            end
-        })
-    end
-
-    lib.registerContext({
-        id = 'skinMenu',
-        title = 'Change Skin',
-        options = options,
-        menu = 'vehicleModMenu' -- Go back to the main menu
-    })
-
-    lib.showContext('skinMenu')
-end
-
-function ChangeSkin(skin)
-    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
-    SetVehicleLivery(vehicle, skin)
-    lib.notify({
-        title = 'Success',
-        description = 'Vehicle skin changed to ' .. skin .. '.',
-        type = 'success',
-        duration = 5000
-    })
-
-    -- Save modifications to the database
-    local vehicleModel = GetDisplayNameFromVehicleModel(GetEntityModel(vehicle)):lower()
-    TriggerServerEvent('vehiclemods:server:saveModifications', vehicleModel, nil, skin, nil)
-end
-
--- Submenu for toggling extras
+-- Extras menu
 function OpenExtrasMenu()
     local options = {}
 
-    for i = Config.ExtrasRange.min, Config.ExtrasRange.max do
+    for i = 1, 15 do -- 15 extras
         table.insert(options, {
             title = 'Toggle Extra ' .. i,
             onSelect = function()
@@ -191,7 +153,7 @@ function OpenExtrasMenu()
         id = 'extrasMenu',
         title = 'Toggle Extras',
         options = options,
-        menu = 'vehicleModMenu' -- Go back to the main menu
+        menu = 'vehicleModMenu'
     })
 
     lib.showContext('extrasMenu')
@@ -203,12 +165,76 @@ function ToggleExtra(extra)
     SetVehicleExtra(vehicle, extra, state and 1 or 0)
     lib.notify({
         title = 'Success',
-        description = 'Extra ' .. extra .. ' toggled.',
+        description = 'Toggled Extra ' .. extra .. '.',
         type = 'success',
         duration = 5000
     })
+end
 
-    -- Save modifications to the database
-    local vehicleModel = GetDisplayNameFromVehicleModel(GetEntityModel(vehicle)):lower()
-    TriggerServerEvent('vehiclemods:server:saveModifications', vehicleModel, nil, nil, tostring(extra))
+-- Doors menu
+function OpenDoorsMenu()
+    local options = {
+        { title = 'Open All Doors', onSelect = function() SetDoorsState('open') end },
+        { title = 'Close All Doors', onSelect = function() SetDoorsState('close') end },
+        { title = 'Open Trunk', onSelect = function() SetDoorState(5, 'open') end },
+        { title = 'Close Trunk', onSelect = function() SetDoorState(5, 'close') end }
+    }
+
+    lib.registerContext({
+        id = 'doorsMenu',
+        title = 'Doors Control',
+        options = options,
+        menu = 'vehicleModMenu'
+    })
+
+    lib.showContext('doorsMenu')
+end
+
+function SetDoorsState(state)
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    for i = 0, 5 do
+        if state == 'open' then
+            SetVehicleDoorOpen(vehicle, i, false, false)
+        else
+            SetVehicleDoorShut(vehicle, i, false)
+        end
+    end
+    lib.notify({
+        title = 'Success',
+        description = 'Doors are now ' .. state .. '.',
+        type = 'success',
+        duration = 5000
+    })
+end
+
+function SetDoorState(door, state)
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    if state == 'open' then
+        SetVehicleDoorOpen(vehicle, door, false, false)
+    else
+        SetVehicleDoorShut(vehicle, door, false)
+    end
+    lib.notify({
+        title = 'Success',
+        description = 'Door ' .. (door == 5 and 'Trunk' or door) .. ' is now ' .. state .. '.',
+        type = 'success',
+        duration = 5000
+    })
+end
+
+-- Engine upgrades (without changing tires)
+function UpgradeEngine()
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    SetVehicleModKit(vehicle, 0)
+    for i = 0, 49 do
+        if i ~= 23 and i ~= 24 then -- Skip tires (wheels)
+            SetVehicleMod(vehicle, i, GetNumVehicleMods(vehicle, i) - 1, false)
+        end
+    end
+    lib.notify({
+        title = 'Success',
+        description = 'Engine upgraded successfully!',
+        type = 'success',
+        duration = 5000
+    })
 end
