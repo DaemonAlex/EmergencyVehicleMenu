@@ -78,5 +78,6 @@ Config.PoliceVehicles = {
     'kart'
 }
 
-Config.SkinsRange = {min = 1, max = 10}
-Config.ExtrasRange = {min = 1, max = 20}
+function IsVehicleAllowed(vehicleModel)
+    return true
+end
