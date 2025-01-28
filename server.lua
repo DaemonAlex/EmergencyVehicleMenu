@@ -24,13 +24,14 @@ AddEventHandler('vehiclemods:server:verifyPoliceJob', function()
     end
 end)
 
--- Event to save modifications to the database
+-- Event to save modifications to the database using oxmysql
 RegisterNetEvent('vehiclemods:server:saveModifications')
 AddEventHandler('vehiclemods:server:saveModifications', function(vehicleModel, performanceLevel, skin, extras)
     local query = 'INSERT INTO emergency_vehicle_mods (vehicle_model, performance_level, skin, extras) VALUES (?, ?, ?, ?)'
     local params = {vehicleModel, performanceLevel or 4, skin, extras}
 
-    MySQL.Async.execute(query, params, function(rowsChanged)
+    -- Use oxmysql to execute the query
+    exports.oxmysql:execute(query, params, function(rowsChanged)
         if rowsChanged > 0 then
             print("[PoliceVehicleMenu] Modifications saved for vehicle: " .. vehicleModel)
         else
@@ -39,14 +40,15 @@ AddEventHandler('vehiclemods:server:saveModifications', function(vehicleModel, p
     end)
 end)
 
--- Event to retrieve modifications from the database
+-- Event to retrieve modifications from the database using oxmysql
 RegisterNetEvent('vehiclemods:server:getModifications')
 AddEventHandler('vehiclemods:server:getModifications', function(vehicleModel)
     local src = source
     local query = 'SELECT * FROM emergency_vehicle_mods WHERE vehicle_model = ? ORDER BY created_at DESC LIMIT 1'
     local params = {vehicleModel}
 
-    MySQL.Async.fetchAll(query, params, function(result)
+    -- Use oxmysql to fetch data from the database
+    exports.oxmysql:fetch(query, params, function(result)
         if result[1] then
             TriggerClientEvent('vehiclemods:client:applyModifications', src, result[1])
         else
