@@ -31,10 +31,12 @@ Run the following SQL query in your database to create the `emergency_vehicle_mo
 
 ```sql
 CREATE TABLE IF NOT EXISTS `emergency_vehicle_mods` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `vehicle_model` VARCHAR(255) NOT NULL,
-  `performance_level` INT NOT NULL DEFAULT 4,
-  `skin` INT DEFAULT NULL,
-  `extras` VARCHAR(255) DEFAULT NULL,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `id` INT NOT NULL AUTO_INCREMENT,
+    `vehicle_model` VARCHAR(255) NOT NULL,
+    `performance_level` INT DEFAULT 4,
+    `skin` INT DEFAULT NULL,
+    `extras` TEXT DEFAULT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    INDEX `vehicle_model_index` (`vehicle_model`)
+);
