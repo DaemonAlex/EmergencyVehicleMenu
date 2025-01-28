@@ -1,20 +1,5 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
--- Debug: Check if ox_lib is loaded
-print("Checking if ox_lib is loaded...")
-if not lib then
-    print("^1[ERROR] ox_lib is not loaded. Attempting to initialize it manually...^7")
-    lib = exports.ox_lib:init()
-    if not lib then
-        print("^1[ERROR] Failed to initialize ox_lib. Please ensure ox_lib is installed and started before PoliceVehicleMenu.^7")
-        return
-    else
-        print("^2[SUCCESS] ox_lib initialized manually.^7")
-    end
-else
-    print("^2[SUCCESS] ox_lib is loaded and ready to use.^7")
-end
-
 -- Command to open the vehicle modification menu
 RegisterCommand('modvehicle', function()
     local ped = PlayerPedId()
@@ -89,6 +74,7 @@ function OpenVehicleModMenu()
             description = 'Upgrade your vehicle\'s engine performance.',
             onSelect = function()
                 UpgradeEngine()
+                OpenVehicleModMenu() -- Reopen the menu after upgrades
             end
         }
     }
@@ -97,7 +83,7 @@ function OpenVehicleModMenu()
         id = 'vehicleModMenu',
         title = 'Vehicle Modification Menu',
         options = options,
-        close = false -- Prevent menu from closing after selection
+        close = false -- Prevent the menu from closing
     })
 
     lib.showContext('vehicleModMenu')
@@ -112,6 +98,7 @@ function OpenLiveryMenu()
             title = 'Livery ' .. i,
             onSelect = function()
                 ApplyLivery(i)
+                OpenLiveryMenu() -- Reopen the menu after applying livery
             end
         })
     end
@@ -147,6 +134,7 @@ function OpenExtrasMenu()
             title = 'Toggle Extra ' .. i,
             onSelect = function()
                 ToggleExtra(i)
+                OpenExtrasMenu() -- Reopen the menu after toggling an extra
             end
         })
     end
@@ -177,10 +165,10 @@ end
 -- Doors menu
 function OpenDoorsMenu()
     local options = {
-        { title = 'Open All Doors', onSelect = function() SetDoorsState('open') end },
-        { title = 'Close All Doors', onSelect = function() SetDoorsState('close') end },
-        { title = 'Open Trunk', onSelect = function() SetDoorState(5, 'open') end },
-        { title = 'Close Trunk', onSelect = function() SetDoorState(5, 'close') end }
+        { title = 'Open All Doors', onSelect = function() SetDoorsState('open'); OpenDoorsMenu() end },
+        { title = 'Close All Doors', onSelect = function() SetDoorsState('close'); OpenDoorsMenu() end },
+        { title = 'Open Trunk', onSelect = function() SetDoorState(5, 'open'); OpenDoorsMenu() end },
+        { title = 'Close Trunk', onSelect = function() SetDoorState(5, 'close'); OpenDoorsMenu() end }
     }
 
     lib.registerContext({
