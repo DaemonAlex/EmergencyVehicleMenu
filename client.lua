@@ -67,9 +67,37 @@ function OpenVehicleModMenu()
         },
         {
             title = 'Engine Upgrades',
-            description = 'Upgrade individual engine components.',
+            description = 'Upgrade engine components.',
             onSelect = function()
                 OpenEngineSubmenu()
+            end
+        },
+        {
+            title = 'Suspension Upgrades',
+            description = 'Upgrade suspension components.',
+            onSelect = function()
+                OpenSuspensionSubmenu()
+            end
+        },
+        {
+            title = 'Transmission Upgrades',
+            description = 'Upgrade transmission components.',
+            onSelect = function()
+                OpenTransmissionSubmenu()
+            end
+        },
+        {
+            title = 'Brakes Upgrades',
+            description = 'Upgrade brakes components.',
+            onSelect = function()
+                OpenBrakesSubmenu()
+            end
+        },
+        {
+            title = 'Turbo',
+            description = 'Enable or disable turbo.',
+            onSelect = function()
+                ToggleTurbo()
             end
         }
     }
@@ -213,43 +241,17 @@ end
 
 -- Engine submenu with submenus for individual components
 function OpenEngineSubmenu()
-    local options = {
-        {
-            title = 'Engine Levels',
-            description = 'Upgrade engine levels 1-4.',
+    local options = {}
+
+    for i = 1, 4 do
+        table.insert(options, {
+            title = 'Engine Level ' .. i,
             onSelect = function()
-                OpenComponentSubmenu(11, 'Engine Level')
+                ApplyComponentUpgrade(11, i - 1) -- Levels start from 0 internally
+                OpenEngineSubmenu()
             end
-        },
-        {
-            title = 'Brakes Levels',
-            description = 'Upgrade brakes levels 1-4.',
-            onSelect = function()
-                OpenComponentSubmenu(12, 'Brakes Level')
-            end
-        },
-        {
-            title = 'Transmission Levels',
-            description = 'Upgrade transmission levels 1-4.',
-            onSelect = function()
-                OpenComponentSubmenu(13, 'Transmission Level')
-            end
-        },
-        {
-            title = 'Suspension Levels',
-            description = 'Upgrade suspension levels 1-4.',
-            onSelect = function()
-                OpenComponentSubmenu(15, 'Suspension Level')
-            end
-        },
-        {
-            title = 'Turbo',
-            description = 'Enable or disable turbo.',
-            onSelect = function()
-                ToggleTurbo()
-            end
-        }
-    }
+        })
+    end
 
     lib.registerContext({
         id = 'engineMenu',
@@ -262,56 +264,77 @@ function OpenEngineSubmenu()
     lib.showContext('engineMenu')
 end
 
--- Submenu for upgrading specific component levels (1-4)
-function OpenComponentSubmenu(modType, componentName)
+-- Suspension submenu
+function OpenSuspensionSubmenu()
     local options = {}
 
-    for level = 1, 4 do
+    for i = 1, 4 do
         table.insert(options, {
-            title = componentName .. ' ' .. level,
+            title = 'Suspension Level ' .. i,
             onSelect = function()
-                ApplyComponentUpgrade(modType, level - 1) -- Levels start from 0 internally
-                OpenComponentSubmenu(modType, componentName)
+                ApplyComponentUpgrade(15, i - 1) -- Levels start from 0 internally
+                OpenSuspensionSubmenu()
             end
         })
     end
 
     lib.registerContext({
-        id = 'componentSubmenu_' .. modType,
-        title = componentName .. ' Levels',
+        id = 'suspensionMenu',
+        title = 'Suspension Upgrades',
         options = options,
-        menu = 'engineMenu',
+        menu = 'vehicleModMenu',
         close = false
     })
 
-    lib.showContext('componentSubmenu_' .. modType)
+    lib.showContext('suspensionMenu')
 end
 
--- Function to apply the component upgrade
-function ApplyComponentUpgrade(modType, level)
-    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
-    SetVehicleModKit(vehicle, 0)
-    SetVehicleMod(vehicle, modType, level, false)
+-- Transmission submenu
+function OpenTransmissionSubmenu()
+    local options = {}
 
-    lib.notify({
-        title = 'Success',
-        description = 'Upgraded to ' .. level + 1 .. '.',
-        type = 'success',
-        duration = 5000
+    for i = 1, 4 do
+        table.insert(options, {
+            title = 'Transmission Level ' .. i,
+            onSelect = function()
+                ApplyComponentUpgrade(13, i - 1) -- Levels start from 0 internally
+                OpenTransmissionSubmenu()
+            end
+        })
+    end
+
+    lib.registerContext({
+        id = 'transmissionMenu',
+        title = 'Transmission Upgrades',
+        options = options,
+        menu = 'vehicleModMenu',
+        close = false
     })
+
+    lib.showContext('transmissionMenu')
 end
 
--- Turbo toggle
-function ToggleTurbo()
-    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
-    local turboEnabled = IsToggleModOn(vehicle, 18)
+-- Brakes submenu
+function OpenBrakesSubmenu()
+    local options = {}
 
-    ToggleVehicleMod(vehicle, 18, not turboEnabled)
+    for i = 1, 4 do
+        table.insert(options, {
+            title = 'Brakes Level ' .. i,
+            onSelect = function()
+                ApplyComponentUpgrade(12, i - 1) -- Levels start from 0 internally
+                OpenBrakesSubmenu()
+            end
+        })
+    end
 
-    lib.notify({
-        title = 'Turbo',
-        description = turboEnabled and 'Turbo disabled.' or 'Turbo enabled!',
-        type = turboEnabled and 'error' or 'success',
-        duration = 5000
+    lib.registerContext({
+        id = 'brakesMenu',
+        title = 'Brakes Upgrades',
+        options = options,
+        menu = 'vehicleModMenu',
+        close = false
     })
+
+    lib.showContext('brakesMenu')
 end
