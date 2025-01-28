@@ -96,6 +96,19 @@ function OpenVehicleModMenu()
     })
 
     lib.showContext('vehicleModMenu')
+
+    -- Keep the menu open until ESC is pressed
+    Citizen.CreateThread(function()
+        local menuOpen = true
+        while menuOpen do
+            Citizen.Wait(0)
+            -- Check if the ESC key (key code 177) is pressed
+            if IsControlJustPressed(0, 177) then
+                menuOpen = false  -- Close the menu when ESC is pressed
+                lib.hideContext()  -- Hide the menu
+            end
+        end
+    end)
 end
 
 -- Event to handle performance upgrades
