@@ -8,7 +8,6 @@ RegisterCommand('modvehicle', function()
         local vehicleModel = GetEntityModel(vehicle)
         local vehicleName = GetDisplayNameFromVehicleModel(vehicleModel):lower()
 
-        -- Check if the vehicle is in the Config.PoliceVehicles list
         if IsVehicleInConfig(vehicleName) then
             TriggerServerEvent('vehiclemods:server:verifyPoliceJob')
         else
@@ -29,7 +28,7 @@ RegisterCommand('modvehicle', function()
     end
 end)
 
--- Function to check if the vehicle is in the Config.PoliceVehicles list
+-- Check if the vehicle is in the Config.PoliceVehicles list
 function IsVehicleInConfig(vehicleName)
     for _, v in pairs(Config.PoliceVehicles) do
         if v == vehicleName then
@@ -39,13 +38,12 @@ function IsVehicleInConfig(vehicleName)
     return false
 end
 
--- Event to open the vehicle modification menu
+-- Main menu
 RegisterNetEvent('vehiclemods:client:openVehicleModMenu')
 AddEventHandler('vehiclemods:client:openVehicleModMenu', function()
     OpenVehicleModMenu()
 end)
 
--- Main menu
 function OpenVehicleModMenu()
     local options = {
         {
@@ -64,17 +62,16 @@ function OpenVehicleModMenu()
         },
         {
             title = 'Doors',
-            description = 'Open or close doors and trunk.',
+            description = 'Open or close individual doors.',
             onSelect = function()
-                OpenDoorsMenu()
+                OpenDoorsSubmenu()
             end
         },
         {
             title = 'Engine Upgrades',
-            description = 'Upgrade your vehicle\'s engine performance.',
+            description = 'Upgrade individual engine components.',
             onSelect = function()
-                UpgradeEngine()
-                OpenVehicleModMenu() -- Reopen the menu after upgrades
+                OpenEngineSubmenu()
             end
         }
     }
@@ -83,7 +80,7 @@ function OpenVehicleModMenu()
         id = 'vehicleModMenu',
         title = 'Vehicle Modification Menu',
         options = options,
-        close = false -- Prevent the menu from closing
+        close = false -- Keep the menu open
     })
 
     lib.showContext('vehicleModMenu')
@@ -93,12 +90,12 @@ end
 function OpenLiveryMenu()
     local options = {}
 
-    for i = 0, 3 do -- 4 livery options
+    for i = 0, 3 do
         table.insert(options, {
             title = 'Livery ' .. i,
             onSelect = function()
                 ApplyLivery(i)
-                OpenLiveryMenu() -- Reopen the menu after applying livery
+                OpenLiveryMenu() -- Reopen the menu
             end
         })
     end
@@ -108,7 +105,7 @@ function OpenLiveryMenu()
         title = 'Select Livery',
         options = options,
         menu = 'vehicleModMenu',
-        close = false -- Keep the menu open
+        close = false
     })
 
     lib.showContext('liveryMenu')
@@ -129,12 +126,12 @@ end
 function OpenExtrasMenu()
     local options = {}
 
-    for i = 1, 15 do -- 15 extras
+    for i = 1, 15 do
         table.insert(options, {
             title = 'Toggle Extra ' .. i,
             onSelect = function()
                 ToggleExtra(i)
-                OpenExtrasMenu() -- Reopen the menu after toggling an extra
+                OpenExtrasMenu()
             end
         })
     end
@@ -144,7 +141,7 @@ function OpenExtrasMenu()
         title = 'Toggle Extras',
         options = options,
         menu = 'vehicleModMenu',
-        close = false -- Keep the menu open
+        close = false
     })
 
     lib.showContext('extrasMenu')
@@ -162,70 +159,99 @@ function ToggleExtra(extra)
     })
 end
 
--- Doors menu
-function OpenDoorsMenu()
-    local options = {
-        { title = 'Open All Doors', onSelect = function() SetDoorsState('open'); OpenDoorsMenu() end },
-        { title = 'Close All Doors', onSelect = function() SetDoorsState('close'); OpenDoorsMenu() end },
-        { title = 'Open Trunk', onSelect = function() SetDoorState(5, 'open'); OpenDoorsMenu() end },
-        { title = 'Close Trunk', onSelect = function() SetDoorState(5, 'close'); OpenDoorsMenu() end }
+-- Doors submenu
+function OpenDoorsSubmenu()
+    local doors = {
+        { title = 'Driver Door', index = 0 },
+        { title = 'Passenger Door', index = 1 },
+        { title = 'Rear Driver Door', index = 2 },
+        { title = 'Rear Passenger Door', index = 3 },
+        { title = 'Hood', index = 4 },
+        { title = 'Trunk', index = 5 }
     }
+
+    local options = {}
+    for _, door in pairs(doors) do
+        table.insert(options, {
+            title = 'Toggle ' .. door.title,
+            onSelect = function()
+                ToggleDoor(door.index)
+                OpenDoorsSubmenu()
+            end
+        })
+    end
 
     lib.registerContext({
         id = 'doorsMenu',
         title = 'Doors Control',
         options = options,
         menu = 'vehicleModMenu',
-        close = false -- Keep the menu open
+        close = false
     })
 
     lib.showContext('doorsMenu')
 end
 
-function SetDoorsState(state)
+function ToggleDoor(door)
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
-    for i = 0, 5 do
-        if state == 'open' then
-            SetVehicleDoorOpen(vehicle, i, false, false)
-        else
-            SetVehicleDoorShut(vehicle, i, false)
-        end
-    end
-    lib.notify({
-        title = 'Success',
-        description = 'Doors are now ' .. state .. '.',
-        type = 'success',
-        duration = 5000
-    })
-end
-
-function SetDoorState(door, state)
-    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
-    if state == 'open' then
-        SetVehicleDoorOpen(vehicle, door, false, false)
-    else
+    if GetVehicleDoorAngleRatio(vehicle, door) > 0 then
         SetVehicleDoorShut(vehicle, door, false)
+        lib.notify({
+            title = 'Success',
+            description = 'Closed ' .. (door == 5 and 'Trunk' or 'Door ' .. door) .. '.',
+            type = 'success',
+            duration = 5000
+        })
+    else
+        SetVehicleDoorOpen(vehicle, door, false, false)
+        lib.notify({
+            title = 'Success',
+            description = 'Opened ' .. (door == 5 and 'Trunk' or 'Door ' .. door) .. '.',
+            type = 'success',
+            duration = 5000
+        })
     end
-    lib.notify({
-        title = 'Success',
-        description = 'Door ' .. (door == 5 and 'Trunk' or door) .. ' is now ' .. state .. '.',
-        type = 'success',
-        duration = 5000
-    })
 end
 
--- Engine upgrades (without changing tires)
-function UpgradeEngine()
+-- Engine submenu
+function OpenEngineSubmenu()
+    local components = {
+        { title = 'Engine', modType = 11 },
+        { title = 'Brakes', modType = 12 },
+        { title = 'Transmission', modType = 13 },
+        { title = 'Suspension', modType = 15 },
+        { title = 'Turbo', modType = 18 }
+    }
+
+    local options = {}
+    for _, component in pairs(components) do
+        table.insert(options, {
+            title = 'Upgrade ' .. component.title,
+            onSelect = function()
+                UpgradeComponent(component.modType)
+                OpenEngineSubmenu()
+            end
+        })
+    end
+
+    lib.registerContext({
+        id = 'engineMenu',
+        title = 'Engine Upgrades',
+        options = options,
+        menu = 'vehicleModMenu',
+        close = false
+    })
+
+    lib.showContext('engineMenu')
+end
+
+function UpgradeComponent(modType)
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
     SetVehicleModKit(vehicle, 0)
-    for i = 0, 49 do
-        if i ~= 23 and i ~= 24 then -- Skip tires (wheels)
-            SetVehicleMod(vehicle, i, GetNumVehicleMods(vehicle, i) - 1, false)
-        end
-    end
+    SetVehicleMod(vehicle, modType, GetNumVehicleMods(vehicle, modType) - 1, false)
     lib.notify({
         title = 'Success',
-        description = 'Engine upgraded successfully!',
+        description = 'Upgraded ' .. modType .. '.',
         type = 'success',
         duration = 5000
     })
