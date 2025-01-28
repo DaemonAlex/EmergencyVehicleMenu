@@ -6,7 +6,7 @@ This FiveM resource enables a comprehensive vehicle modification system specific
 
 ## Requirements
 
-- **QBCore Framework**
+- **QBCore/QBX Framework**
 - **ox_lib**
 - **OxMysql** (MariaDB)
 
