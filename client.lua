@@ -4,10 +4,7 @@ local QBCore = exports['qb-core']:GetCoreObject()
 print("Checking if ox_lib is loaded...")
 if not lib then
     print("^1[ERROR] ox_lib is not loaded. Attempting to initialize it manually...^7")
-    
-    -- Attempt to initialize ox_lib manually
     lib = exports.ox_lib:init()
-    
     if not lib then
         print("^1[ERROR] Failed to initialize ox_lib. Please ensure ox_lib is installed and started before PoliceVehicleMenu.^7")
         return
@@ -68,23 +65,23 @@ function OpenVehicleModMenu()
     local options = {
         {
             title = 'Performance Upgrades',
-            description = 'Upgrade your vehicle\'s performance.',
+            description = 'Select performance modifications.',
             onSelect = function()
-                TriggerEvent('vehiclemods:client:upgradePerformance')
+                OpenPerformanceMenu()
             end
         },
         {
             title = 'Change Skin',
-            description = 'Change your vehicle\'s appearance.',
+            description = 'Select vehicle skin.',
             onSelect = function()
-                TriggerEvent('vehiclemods:client:changeSkin')
+                OpenSkinMenu()
             end
         },
         {
             title = 'Toggle Extras',
-            description = 'Enable or disable vehicle extras.',
+            description = 'Select vehicle extras.',
             onSelect = function()
-                TriggerEvent('vehiclemods:client:toggleExtras')
+                OpenExtrasMenu()
             end
         }
     }
@@ -96,46 +93,74 @@ function OpenVehicleModMenu()
     })
 
     lib.showContext('vehicleModMenu')
-
-    -- Keep the menu open until ESC is pressed
-    Citizen.CreateThread(function()
-        local menuOpen = true
-        while menuOpen do
-            Citizen.Wait(0)
-            -- Check if the ESC key (key code 177) is pressed
-            if IsControlJustPressed(0, 177) then
-                menuOpen = false  -- Close the menu when ESC is pressed
-                lib.hideContext()  -- Hide the menu
-            end
-        end
-    end)
 end
 
--- Event to handle performance upgrades
-RegisterNetEvent('vehiclemods:client:upgradePerformance')
-AddEventHandler('vehiclemods:client:upgradePerformance', function()
+-- Submenu for performance upgrades
+function OpenPerformanceMenu()
+    local options = {}
+
+    for i = 0, 4 do
+        table.insert(options, {
+            title = 'Performance Level ' .. i,
+            onSelect = function()
+                UpgradePerformance(i)
+            end
+        })
+    end
+
+    lib.registerContext({
+        id = 'performanceMenu',
+        title = 'Performance Upgrades',
+        options = options,
+        menu = 'vehicleModMenu' -- Go back to the main menu
+    })
+
+    lib.showContext('performanceMenu')
+end
+
+function UpgradePerformance(level)
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
     SetVehicleModKit(vehicle, 0)
     for i = 0, 49 do
-        SetVehicleMod(vehicle, i, GetNumVehicleMods(vehicle, i) - 1, false)
+        SetVehicleMod(vehicle, i, level, false)
     end
     lib.notify({
         title = 'Success',
-        description = 'Vehicle performance upgraded to level 4.',
+        description = 'Vehicle performance upgraded to level ' .. level .. '.',
         type = 'success',
         duration = 5000
     })
 
     -- Save modifications to the database
     local vehicleModel = GetDisplayNameFromVehicleModel(GetEntityModel(vehicle)):lower()
-    TriggerServerEvent('vehiclemods:server:saveModifications', vehicleModel, 4, nil, nil)
-end)
+    TriggerServerEvent('vehiclemods:server:saveModifications', vehicleModel, level, nil, nil)
+end
 
--- Event to handle skin changes
-RegisterNetEvent('vehiclemods:client:changeSkin')
-AddEventHandler('vehiclemods:client:changeSkin', function()
+-- Submenu for skin changes
+function OpenSkinMenu()
+    local options = {}
+
+    for i = Config.SkinsRange.min, Config.SkinsRange.max do
+        table.insert(options, {
+            title = 'Skin ' .. i,
+            onSelect = function()
+                ChangeSkin(i)
+            end
+        })
+    end
+
+    lib.registerContext({
+        id = 'skinMenu',
+        title = 'Change Skin',
+        options = options,
+        menu = 'vehicleModMenu' -- Go back to the main menu
+    })
+
+    lib.showContext('skinMenu')
+end
+
+function ChangeSkin(skin)
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
-    local skin = math.random(Config.SkinsRange.min, Config.SkinsRange.max)
     SetVehicleLivery(vehicle, skin)
     lib.notify({
         title = 'Success',
@@ -147,17 +172,38 @@ AddEventHandler('vehiclemods:client:changeSkin', function()
     -- Save modifications to the database
     local vehicleModel = GetDisplayNameFromVehicleModel(GetEntityModel(vehicle)):lower()
     TriggerServerEvent('vehiclemods:server:saveModifications', vehicleModel, nil, skin, nil)
-end)
+end
 
--- Event to handle toggling extras
-RegisterNetEvent('vehiclemods:client:toggleExtras')
-AddEventHandler('vehiclemods:client:toggleExtras', function()
+-- Submenu for toggling extras
+function OpenExtrasMenu()
+    local options = {}
+
+    for i = Config.ExtrasRange.min, Config.ExtrasRange.max do
+        table.insert(options, {
+            title = 'Toggle Extra ' .. i,
+            onSelect = function()
+                ToggleExtra(i)
+            end
+        })
+    end
+
+    lib.registerContext({
+        id = 'extrasMenu',
+        title = 'Toggle Extras',
+        options = options,
+        menu = 'vehicleModMenu' -- Go back to the main menu
+    })
+
+    lib.showContext('extrasMenu')
+end
+
+function ToggleExtra(extra)
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
-    local extra = math.random(Config.ExtrasRange.min, Config.ExtrasRange.max)
-    SetVehicleExtra(vehicle, extra, false)
+    local state = IsVehicleExtraTurnedOn(vehicle, extra)
+    SetVehicleExtra(vehicle, extra, state and 1 or 0)
     lib.notify({
         title = 'Success',
-        description = 'Vehicle extra ' .. extra .. ' toggled.',
+        description = 'Extra ' .. extra .. ' toggled.',
         type = 'success',
         duration = 5000
     })
@@ -165,30 +211,4 @@ AddEventHandler('vehiclemods:client:toggleExtras', function()
     -- Save modifications to the database
     local vehicleModel = GetDisplayNameFromVehicleModel(GetEntityModel(vehicle)):lower()
     TriggerServerEvent('vehiclemods:server:saveModifications', vehicleModel, nil, nil, tostring(extra))
-end)
-
--- Event to apply saved modifications when entering a vehicle
-RegisterNetEvent('vehiclemods:client:applyModifications')
-AddEventHandler('vehiclemods:client:applyModifications', function(data)
-    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
-    if DoesEntityExist(vehicle) then
-        -- Apply performance level
-        SetVehicleModKit(vehicle, 0)
-        for i = 0, 49 do
-            SetVehicleMod(vehicle, i, data.performance_level, false)
-        end
-
-        -- Apply skin
-        if data.skin then
-            SetVehicleLivery(vehicle, data.skin)
-        end
-
-        -- Apply extras
-        if data.extras then
-            local extras = json.decode(data.extras)
-            for _, extra in pairs(extras) do
-                SetVehicleExtra(vehicle, extra, false)
-            end
-        end
-    end
-end)
+end
