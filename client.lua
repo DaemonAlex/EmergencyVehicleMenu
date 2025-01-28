@@ -96,7 +96,8 @@ function OpenVehicleModMenu()
     lib.registerContext({
         id = 'vehicleModMenu',
         title = 'Vehicle Modification Menu',
-        options = options
+        options = options,
+        close = false -- Prevent menu from closing after selection
     })
 
     lib.showContext('vehicleModMenu')
@@ -119,7 +120,8 @@ function OpenLiveryMenu()
         id = 'liveryMenu',
         title = 'Select Livery',
         options = options,
-        menu = 'vehicleModMenu'
+        menu = 'vehicleModMenu',
+        close = false -- Keep the menu open
     })
 
     lib.showContext('liveryMenu')
@@ -153,7 +155,8 @@ function OpenExtrasMenu()
         id = 'extrasMenu',
         title = 'Toggle Extras',
         options = options,
-        menu = 'vehicleModMenu'
+        menu = 'vehicleModMenu',
+        close = false -- Keep the menu open
     })
 
     lib.showContext('extrasMenu')
@@ -184,7 +187,8 @@ function OpenDoorsMenu()
         id = 'doorsMenu',
         title = 'Doors Control',
         options = options,
-        menu = 'vehicleModMenu'
+        menu = 'vehicleModMenu',
+        close = false -- Keep the menu open
     })
 
     lib.showContext('doorsMenu')
