@@ -1,30 +1,29 @@
-# Police Vehicle Modification System for QBCore/QBX W Ox_lib for UI
-
-This FiveM resource enables a comprehensive vehicle modification system tailored to emergency vehicles. Designed for servers running the QBCore framework, it allows players with the police job to enhance their vehicle's performance and customize appearances through an intuitive menu.
-I'm still working on getting the mod upgrades working 
----
+## Emergency Vehicle Modification System for QBCore/QBX via OX_LIB UI
 
 ## Requirements
-
 - **QBCore/QBX Framework**
 - **ox_lib**
-- **OxMysql** (MariaDB)
+- **OxMysql**
 
 ---
 
 ## Features
 
-- **Performance Upgrades**: Upgrade emergency vehicles to level 4 performance.
-- **Custom Skins**: Change vehicle appearances with customizable skins.
-- **Toggle Extras**: Enable or disable vehicle extras.
-- **Database Integration**: Save and retrieve modifications for persistence.
+- **Change Vehicle Extras**: Ada and remove up to 20 Veh Extras
+- **Custom Skins**: Change vehicle liveries.
+- **Database Integration**: Save and retrieve modifications for user veh preference persistence.
+
+---
+
+## COMMANDS
+ /modvehicle
 
 ---
 
 ## Installation
 
 ### 1. Download the Resource
-Clone or download this repository into your `resources` folder.
+Clone or download this repository into your `resources` folder and ensure.
 
 ### 2. Set Up the Database
 Run the following SQL query in your database to create the `emergency_vehicle_mods` table:
