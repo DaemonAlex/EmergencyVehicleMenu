@@ -1,7 +1,6 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 local ox_mysql = exports['oxmysql']
 
--- Verify job and open menu
 RegisterNetEvent('vehiclemods:server:verifyJob', function()
     local src = source
     local Player = QBCore.Functions.GetPlayer(src)
@@ -15,7 +14,6 @@ RegisterNetEvent('vehiclemods:server:verifyJob', function()
     end
 end)
 
--- Save vehicle modifications
 RegisterNetEvent('vehiclemods:server:saveModifications', function(vehicleModel, skin, extras)
     local src = source
     local Player = QBCore.Functions.GetPlayer(src)
@@ -25,7 +23,6 @@ RegisterNetEvent('vehiclemods:server:saveModifications', function(vehicleModel, 
     end
 end)
 
--- Retrieve vehicle modifications
 RegisterNetEvent('vehiclemods:server:getModifications', function(vehicleModel)
     local src = source
     ox_mysql:execute("SELECT skin, extras FROM emergency_vehicle_mods WHERE vehicle_model = ?", {vehicleModel}, function(result)
