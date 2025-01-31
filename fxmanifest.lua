@@ -2,7 +2,7 @@ fx_version 'cerulean'
 games { 'gta5' }
 
 author 'Deamonalex'
-description 'Police Vehicle Modification System'
+description 'Emergency Vehicle Modification System'
 version '1.0.0'
 
 lua54 'yes'
@@ -18,5 +18,4 @@ dependencies {
 
 shared_scripts {
     '@ox_lib/init.lua',
-    'config.lua'
 }
