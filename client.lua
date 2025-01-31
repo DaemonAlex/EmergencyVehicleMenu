@@ -1,6 +1,5 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
--- Command to open the emergency vehicle modification menu
 RegisterCommand('modveh', function()
     local player = PlayerId()
     local ped = PlayerPedId()
@@ -27,7 +26,6 @@ RegisterCommand('modveh', function()
     end
 end)
 
--- Main Menu
 RegisterNetEvent('EmergencyVehicleMenu:client:openMenu')
 AddEventHandler('EmergencyVehicleMenu:client:openMenu', function()
     local options = {
@@ -63,7 +61,6 @@ AddEventHandler('EmergencyVehicleMenu:client:openMenu', function()
     lib.showContext('EmergencyVehicleMenu')
 end)
 
--- Livery Menu
 function OpenLiveryMenu()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
     local options = {}
@@ -95,7 +92,6 @@ function OpenLiveryMenu()
     lib.showContext('LiveryMenu')
 end
 
--- Extras Menu
 function OpenExtrasMenu()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
     local options = {}
@@ -129,7 +125,6 @@ function OpenExtrasMenu()
     lib.showContext('ExtrasMenu')
 end
 
--- Doors Menu
 function OpenDoorsMenu()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
     local doors = {
