@@ -36,11 +36,10 @@ Run the following SQL query in your database to create the `emergency_vehicle_mo
 CREATE TABLE IF NOT EXISTS `emergency_vehicle_mods` (
     `id` INT NOT NULL AUTO_INCREMENT,
     `vehicle_model` VARCHAR(255) NOT NULL,
-    `performance_level` INT DEFAULT 4,
-    `skin` INT DEFAULT NULL,
+    `skin` VARCHAR(255) DEFAULT NULL,
     `extras` TEXT DEFAULT NULL,
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    INDEX `vehicle_model_index` (`vehicle_model`)
+    UNIQUE KEY `vehicle_model_unique` (`vehicle_model`)
 );
 ```
