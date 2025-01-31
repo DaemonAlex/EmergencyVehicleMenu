@@ -1,66 +1,38 @@
-local ox_lib = require('ox_lib')
-local ox_mysql = require('ox_mysql')
+local QBCore = exports['qb-core']:GetCoreObject()
+local ox_mysql = exports['oxmysql']
 
--- Register NetEvent handlers for vehicle modifications
-AddEventHandler('vehiclemods:server:verifyPoliceJob', function(source)
-    -- Verify if the player is a police officer
-    local playerId =IdentifierFromId(source)
-    local player = Player(playerId)
-    if player then
-        local job = GetPlayerOccupation(player) -- Assuming 1 represents a police job
-        if job == 1 then -- Assuming 1 represents a police job
-            TriggerClientEvent('vehiclemods:client:openVehicleModMenu', source)
+-- Verify job and open menu
+RegisterNetEvent('vehiclemods:server:verifyJob', function()
+    local src = source
+    local Player = QBCore.Functions.GetPlayer(src)
+    if Player then
+        local job = Player.PlayerData.job.name
+        if job == 'police' or job == 'ambulance' then
+            TriggerClientEvent('vehiclemods:client:openVehicleModMenu', src)
         else
-            Print("[PoliceVehicleMenu] Player not found or invalid occupation.")
+            TriggerClientEvent('ox_lib:notify', src, {title = 'Access Denied', description = 'You must be a first responder to use this.', type = 'error'})
         end
-
-        Print("[PoliceVehicleMenu] Player not found.")
     end
 end)
 
-AddEventHandler('vehiclemods:server:saveModifications(source, vehicleModel, performanceLevel, skin)
-    -- Ensure source and parameters are valid
-    local playerId = GetPlayerIdentifierFromId(source)
-    if playerId and IsValidPlayerSource(playerId) then
-        try
-            local values = {string(vehicleModel), tonumber(performanceLevel or 4), string(skin), string(extras)}
-            local success, result = ox_mysql.query({
-                sql = "INSERT INTO `emergency_vehicle_mods` (`vehicle_model`, `performance_level`, `skin`, `extras`) VALUES (?, ?, ?, ?)",
-                values = values
-            })
-            if not success then
-                error(result)
-            end
-        catch
-            local exception = Get(GetLastError())
-            Print("[PoliceVehicleMenu] Error saving vehicle modifications: " .. tostring(exception))
-        end
-    else
-        Print("[PoliceVehicleMenu] Invalid source ID.")
+-- Save vehicle modifications
+RegisterNetEvent('vehiclemods:server:saveModifications', function(vehicleModel, skin, extras)
+    local src = source
+    local Player = QBCore.Functions.GetPlayer(src)
+    if Player then
+        ox_mysql:execute("INSERT INTO emergency_vehicle_mods (vehicle_model, skin, extras) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE skin = VALUES(skin), extras = VALUES(extras)",
+            {vehicleModel, skin, extras})
     end
 end)
 
-AddEventHandler('vehiclemods:server:getModifications', function(source, vehicleModel)
-    -- Ensure valid source and parameters
-    local playerId = GetPlayerIdentifierFromId(source)
-    if playerId and IsValidPlayerSource(playerId) then
-        try
-            local result = {}
-            local querySuccess, result = ox_mysql.query({
-                sql = "SELECT performance_level, skin, extras FROM emergency_vehicle_mods WHERE vehicle_model = ?",
-                values = {vehicleModel}
-            })
-            if not query
-                error(result)
-            else
-                for _, row in ipairs(queryResult) do
-                    table.insert(result, {performanceLevel = tonumber(row['performance_level']), skin = tostring(row['skin']), extras = tostring(row['extras'])})
-                           end
-            TriggerClientEvent('vehiclemods:client:returnModifications', source, result catch
-            local exception = Get(GetLastError())
-            Print("[PoliceVehicleMenu] Error fetching vehicle modifications: " .. tostring(exception))
+-- Retrieve vehicle modifications
+RegisterNetEvent('vehiclemods:server:getModifications', function(vehicleModel)
+    local src = source
+    ox_mysql:execute("SELECT skin, extras FROM emergency_vehicle_mods WHERE vehicle_model = ?", {vehicleModel}, function(result)
+        if result and #result > 0 then
+            TriggerClientEvent('vehiclemods:client:returnModifications', src, result[1])
+        else
+            TriggerClientEvent('vehiclemods:client:returnModifications', src, nil)
         end
-    else
-        Print("[PoliceVehicleMenu] Invalid source ID.")
-    end
+    end)
 end)

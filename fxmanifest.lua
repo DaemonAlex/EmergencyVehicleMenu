@@ -2,7 +2,7 @@ fx_version 'cerulean'
 games { 'gta5' }
 
 author 'Deamonalex'
-description 'Emergency Vehicle Modification System'
+description 'Emergency Vehicle Menu'
 version '1.0.0'
 
 lua54 'yes'
