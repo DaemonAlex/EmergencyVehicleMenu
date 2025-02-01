@@ -17,6 +17,13 @@
 ![Screenshot 2025-01-30 190647](https://github.com/user-attachments/assets/86eda620-02b0-4841-9939-d02b35a4e4d5)
 ![Screenshot 2025-01-30 190611](https://github.com/user-attachments/assets/dea93887-7598-4896-aee2-294e8a4d009d)
 
+**Future Updates:**
+easy to edit config to add additional jobs or custom job names.
+Additional SQL logic that will save preferences for each vehicle the player uses. Updates with each change.
+QBX & ESX compatibility
+Compatibility with other menus, TBD based on feedback.
+Complete Mod menu for useable only at PD, EMS, or other locations specified in the config.
+
 ---
 
 ## COMMANDS
