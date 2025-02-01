@@ -20,7 +20,7 @@
 ---
 
 ## COMMANDS
- /modvehicle
+ /modveh
 
 ---
 
