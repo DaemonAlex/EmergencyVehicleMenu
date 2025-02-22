@@ -8,7 +8,8 @@
 ---
 
 ## Features
-
+- Easy-to-edit config to add additional jobs or custom job names
+-  Compatibility with **QBX** & **ESX** frameworks
 - **Change Vehicle Extras**: Add and remove up to 20 vehicle extras
 - **Custom Skins**: Change vehicle liveries
 - **Database Integration**: Save and retrieve modifications for user vehicle preference persistence
@@ -20,9 +21,8 @@
 ![Screenshot 2025-01-30 190611](https://github.com/user-attachments/assets/dea93887-7598-4896-aee2-294e8a4d009d)
 
 **Future Updates:**
-- Easy-to-edit config to add additional jobs or custom job names
+
 - Additional SQL logic to save preferences for each vehicle the player uses, with updates on each change
-- Compatibility with **QBX** & **ESX** frameworks
 - Compatibility with other menus (TBD based on feedback)
 - Complete Mod menu for useable only at PD, EMS, or other locations specified in the config
 
