@@ -1,12 +1,27 @@
-local QBCore = exports['qb-core']:GetCoreObject()
+Config = require('config')
+
+local QBCore, ESX
 local ox_mysql = exports['oxmysql']
+
+if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
+    QBCore = exports['qb-core']:GetCoreObject()
+elseif Config.Framework == 'esx' then
+    TriggerEvent('esx:getSharedObject', function(obj) ESX = obj end)
+end
 
 RegisterNetEvent('vehiclemods:server:verifyJob', function()
     local src = source
-    local Player = QBCore.Functions.GetPlayer(src)
+    local Player
+
+    if QBCore then
+        Player = QBCore.Functions.GetPlayer(src)
+    elseif ESX then
+        Player = ESX.GetPlayerFromId(src)
+    end
+
     if Player then
-        local job = Player.PlayerData.job.name
-        if job == 'police' or job == 'ambulance' then
+        local job = Player.job.name
+        if Config.JobAccess[job] then
             TriggerClientEvent('vehiclemods:client:openVehicleModMenu', src)
         else
             TriggerClientEvent('ox_lib:notify', src, {title = 'Access Denied', description = 'You must be a first responder to use this.', type = 'error'})
@@ -16,7 +31,14 @@ end)
 
 RegisterNetEvent('vehiclemods:server:saveModifications', function(vehicleModel, skin, extras)
     local src = source
-    local Player = QBCore.Functions.GetPlayer(src)
+    local Player
+
+    if QBCore then
+        Player = QBCore.Functions.GetPlayer(src)
+    elseif ESX then
+        Player = ESX.GetPlayerFromId(src)
+    end
+
     if Player then
         ox_mysql:execute("INSERT INTO emergency_vehicle_mods (vehicle_model, skin, extras) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE skin = VALUES(skin), extras = VALUES(extras)",
             {vehicleModel, skin, extras})
@@ -33,3 +55,4 @@ RegisterNetEvent('vehiclemods:server:getModifications', function(vehicleModel)
         end
     end)
 end)
+
