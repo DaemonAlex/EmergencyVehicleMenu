@@ -1,7 +1,7 @@
 ## Emergency Vehicle Modification System for QBCore/QBX, ESX, and Standalone via OX_LIB UI
 
 ## Requirements
-- **QBCore/QBX Framework** (or **ESX** Framework for ESX servers)
+- **QBCore/QBX Framework** **ESX** **Standalone**
 - **ox_lib**
 - **OxMysql**
 
