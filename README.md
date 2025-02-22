@@ -33,7 +33,6 @@
 
 ### Notes:
 - Ensure your **ox_lib** and **OxMysql** dependencies are properly installed and configured in your server.
-- **ox_lib** interface for vehicle modification will need to be set up on your server. This part is essential for interacting with the modification menu, which can be customized to your preferences.
 ---
 
 ## Installation
