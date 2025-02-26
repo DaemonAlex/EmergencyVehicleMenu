@@ -10,20 +10,26 @@ end
 
 RegisterCommand('modveh', function()
     local job = ''
-    if QBCore then
+    if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
         job = QBCore.Functions.GetPlayerData().job.name
-    elseif ESX then
+    elseif Config.Framework == 'esx' then
         local playerData = ESX.GetPlayerData()
         job = playerData.job.name
+    elseif Config.Framework == 'standalone' then
+        -- Handle standalone job retrieval logic
+        job = 'standalone'  -- Example, replace with actual logic
     end
 
-    if job == 'police' or job == 'ambulance' then
+    if Config.JobAccess[job] then
         TriggerEvent('vehiclemods:client:openVehicleModMenu')
     else
         if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
             TriggerEvent('ox_lib:notify', {title = 'Access Denied', description = 'You must be a first responder to use this.', type = 'error'})
-        elseif ESX then
+        elseif Config.Framework == 'esx' then
             ESX.ShowNotification('You must be a first responder to use this.')
+        elseif Config.Framework == 'standalone' then
+            -- Handle standalone notification logic
+            print('You must be a first responder to use this.')  -- Example, replace with actual logic
         end
     end
 end, false)
@@ -40,21 +46,23 @@ RegisterNetEvent('vehiclemods:client:returnModifications', function(modification
         local skin = modifications.skin
         local extras = modifications.extras
     else
+        -- Handle case where no modifications are found
     end
 end)
 
 RegisterNetEvent('vehiclemods:client:saveModifications', function(vehicleModel, skin, extras)
-    if QBCore then
-        local playerData = QBCore.Functions.GetPlayerData()
+    if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
         TriggerServerEvent('vehiclemods:server:saveModifications', vehicleModel, skin, extras)
-    elseif ESX then
-        local playerData = ESX.GetPlayerData()
+    elseif Config.Framework == 'esx' then
         TriggerServerEvent('vehiclemods:server:saveModifications', vehicleModel, skin, extras)
     elseif Config.Framework == 'standalone' then
+        -- Handle standalone logic if needed
+        TriggerServerEvent('vehiclemods:server:saveModifications', vehicleModel, skin, extras)
     end
 end)
 
 RegisterNetEvent('vehiclemods:client:updateUI', function(modifications)
     if modifications then
+        -- Update UI with modifications
     end
 end)
