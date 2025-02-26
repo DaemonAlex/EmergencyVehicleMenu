@@ -42,16 +42,30 @@ Clone or download this repository into your `resources` folder and ensure it's l
 ### 2. Configuration
 Before starting your server, open the `config.lua` file in the resource folder and set the `Config.Framework` to one of the following:
 - `'qb-core'` for **QBCore/QBX**
+- `'qbx_core'` for **QBX**
 - `'esx'` for **ESX**
 - `'standalone'` for a **custom setup** without a framework
 
 ```lua
 -- Framework Selection Configuration
 Config = {}
-Config.Framework = 'qb-core' -- Change this to 'esx' or 'standalone' as needed
+Config.Framework = 'standalone' -- Change this to 'qb-core', 'qbx_core', or 'esx' as needed
 ```
 
-### 3. Set Up the Database
+### 3. Modify the fxmanifest.lua
+Open the `fxmanifest.lua` file in the resource folder and uncomment the line for the framework you are using. Comment out the lines for the frameworks you are not using. Only one framework should be uncommented.
+
+```lua
+dependencies {
+    -- Uncomment the framework you are using
+    -- 'qb-core',
+    -- 'qbx_core',
+    -- 'es_extended',
+    'ox_lib'
+}
+```
+
+### 4. Set Up the Database
 Run the appropriate SQL script for your server's framework to create the `emergency_vehicle_mods` table.
 
 #### For QBCore:
@@ -99,7 +113,7 @@ CREATE TABLE IF NOT EXISTS `emergency_vehicle_mods` (
 );
 ```
 
-### 4. Run Your Server
+### 5. Run Your Server
 After you've updated the configuration and set up your database, you can start your server. The **Emergency Vehicle Modification System** will now be fully integrated and functional!
 
 ---
