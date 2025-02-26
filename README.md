@@ -50,6 +50,7 @@ Before starting your server, open the `config.lua` file in the resource folder a
 -- Framework Selection Configuration
 Config = {}
 Config.Framework = 'qb-core' -- Change this to 'esx' or 'standalone' as needed
+```
 
 ### 3. Set Up the Database
 Run the appropriate SQL script for your server's framework to create the `emergency_vehicle_mods` table.
@@ -67,6 +68,7 @@ CREATE TABLE IF NOT EXISTS `emergency_vehicle_mods` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `vehicle_model_unique` (`vehicle_model`)
 );
+```
 
 #### For ESX:
 Run the SQL code in `esx_sql.sql`:
@@ -81,6 +83,7 @@ CREATE TABLE IF NOT EXISTS `emergency_vehicle_mods` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `vehicle_model_unique` (`vehicle_model`)
 );
+```
 
 #### For Standalone:
 Run the SQL code in `standalone_sql.sql`:
@@ -95,6 +98,8 @@ CREATE TABLE IF NOT EXISTS `emergency_vehicle_mods` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `vehicle_model_unique` (`vehicle_model`)
 );
+```
+
 ### 4. Run Your Server
 After you've updated the configuration and set up your database, you can start your server. The **Emergency Vehicle Modification System** will now be fully integrated and functional!
 
