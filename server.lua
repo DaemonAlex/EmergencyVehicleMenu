@@ -13,10 +13,13 @@ RegisterNetEvent('vehiclemods:server:verifyJob', function()
     local src = source
     local Player
 
-    if QBCore then
+    if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
         Player = QBCore.Functions.GetPlayer(src)
-    elseif ESX then
+    elseif Config.Framework == 'esx' then
         Player = ESX.GetPlayerFromId(src)
+    elseif Config.Framework == 'standalone' then
+        -- Handle standalone player retrieval logic
+        Player = { job = { name = 'standalone' } }  -- Example, replace with actual logic
     end
 
     if Player then
@@ -33,10 +36,13 @@ RegisterNetEvent('vehiclemods:server:saveModifications', function(vehicleModel, 
     local src = source
     local Player
 
-    if QBCore then
+    if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
         Player = QBCore.Functions.GetPlayer(src)
-    elseif ESX then
+    elseif Config.Framework == 'esx' then
         Player = ESX.GetPlayerFromId(src)
+    elseif Config.Framework == 'standalone' then
+        -- Handle standalone player retrieval logic
+        Player = { job = { name = 'standalone' } }  -- Example, replace with actual logic
     end
 
     if Player then
