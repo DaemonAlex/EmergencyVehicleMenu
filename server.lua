@@ -18,8 +18,7 @@ RegisterNetEvent('vehiclemods:server:verifyJob', function()
     elseif Config.Framework == 'esx' then
         Player = ESX.GetPlayerFromId(src)
     elseif Config.Framework == 'standalone' then
-        -- Handle standalone player retrieval logic
-        Player = { job = { name = 'standalone' } }  -- Example, replace with actual logic
+        Player = { job = { name = 'standalone' } }
     end
 
     if Player then
@@ -41,8 +40,7 @@ RegisterNetEvent('vehiclemods:server:saveModifications', function(vehicleModel, 
     elseif Config.Framework == 'esx' then
         Player = ESX.GetPlayerFromId(src)
     elseif Config.Framework == 'standalone' then
-        -- Handle standalone player retrieval logic
-        Player = { job = { name = 'standalone' } }  -- Example, replace with actual logic
+        Player = { job = { name = 'standalone' } }
     end
 
     if Player then
@@ -61,4 +59,3 @@ RegisterNetEvent('vehiclemods:server:getModifications', function(vehicleModel)
         end
     end)
 end)
-
