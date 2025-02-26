@@ -10,10 +10,12 @@ lua54 'yes'
 client_script 'client.lua'
 server_script 'server.lua'
 
-
 dependencies {
-    'qb-core',
-    'ox_lib' 
+    -- Uncomment the framework you are using. Leave all uncommented if you are STANDALONE
+    -- 'qb-core',
+    -- 'qbx_core',
+    -- 'es_extended',
+    'ox_lib'
 }
 
 shared_scripts {
