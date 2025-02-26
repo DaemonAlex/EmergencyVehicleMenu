@@ -57,7 +57,7 @@ Open the `fxmanifest.lua` file in the resource folder and uncomment the line for
 
 ```lua
 dependencies {
-    -- Uncomment the framework you are using
+    -- Uncomment the framework you are using. If Standalone leave it as is.
     -- 'qb-core',
     -- 'qbx_core',
     -- 'es_extended',
