@@ -1,7 +1,9 @@
-Config = require('config')
-
 local QBCore, ESX
 local ox_mysql = exports['oxmysql']
+
+if not Config then
+    print("^1ERROR:^0 Config is not loaded! Check fxmanifest.lua.")
+end
 
 if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
     QBCore = exports['qb-core']:GetCoreObject()
