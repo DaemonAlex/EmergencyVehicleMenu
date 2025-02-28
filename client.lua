@@ -1,25 +1,32 @@
 local QBCore, ESX
 
+-- Load the correct framework
 if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
     QBCore = exports['qb-core']:GetCoreObject()
 elseif Config.Framework == 'esx' then
     TriggerEvent('esx:getSharedObject', function(obj) ESX = obj end)
 end
 
+-- Command to open the emergency vehicle mod menu
 RegisterCommand('modveh', function()
     local job = ''
+
+    -- Get player job based on the framework
     if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
-        job = QBCore.Functions.GetPlayerData().job.name
+        local playerData = QBCore.Functions.GetPlayerData()
+        job = playerData and playerData.job and playerData.job.name or 'unknown'
     elseif Config.Framework == 'esx' then
         local playerData = ESX.GetPlayerData()
-        job = playerData.job.name
+        job = playerData and playerData.job and playerData.job.name or 'unknown'
     elseif Config.Framework == 'standalone' then
         job = 'standalone'
     end
 
-    if Config.JobAccess[job] then
-        TriggerEvent('vehiclemods:client:openVehicleModMenu')
-    else
+    -- Check if the player's job is allowed
+    if not Config.JobAccess[job] then
+        print("^1ERROR:^0 Access denied for job: " .. job)
+        
+        -- Notify the player based on the framework
         if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
             TriggerEvent('ox_lib:notify', {title = 'Access Denied', description = 'You must be a first responder to use this.', type = 'error'})
         elseif Config.Framework == 'esx' then
@@ -27,7 +34,13 @@ RegisterCommand('modveh', function()
         elseif Config.Framework == 'standalone' then
             print('You must be a first responder to use this.')
         end
+
+        return
     end
+
+    -- If the job is valid, open the vehicle mod menu
+    print("^2SUCCESS:^0 Job " .. job .. " has access to the menu.")
+    TriggerEvent('vehiclemods:client:openVehicleModMenu')
 end, false)
 
 RegisterNetEvent('vehiclemods:client:openVehicleModMenu')
