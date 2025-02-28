@@ -1,5 +1,3 @@
-Config = require('config')
-
 local QBCore, ESX
 
 if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
