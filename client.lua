@@ -2,14 +2,15 @@ RegisterCommand('modveh', function()
     local job = ''
     local QBCore = exports['qb-core']:GetCoreObject()
         
-    if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
-        if QBCore and QBCore.Functions then
-            local playerData = QBCore.Functions.GetPlayerData()
-            job = playerData and playerData.job and playerData.job.name or 'unknown'
-        else
-            print("^1ERROR:^0 QBCore is not defined, please make sure the qb-core resource is started.")
-            job = 'unknown'
-        end
+if Config.Framework == 'qb-core' or Config.Framework == 'qbx-core' then
+    if QBCore and QBCore.Functions then
+        local playerData = QBCore.Functions.GetPlayerData()
+        job = playerData and playerData.job and playerData.job.name or 'unknown'
+    else
+        print("^1ERROR:^0 QBCore is not defined, please make sure the qb-core resource is started.")
+        job = 'unknown'
+    end
+
     elseif Config.Framework == 'esx' then
         local playerData = ESX.GetPlayerData()
         job = playerData and playerData.job and playerData.job.name or 'unknown'
