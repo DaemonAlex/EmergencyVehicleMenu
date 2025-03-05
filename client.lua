@@ -1,6 +1,7 @@
 RegisterCommand('modveh', function()
     local job = ''
-
+    local QBCore = exports['qb-core']:GetCoreObject()
+        
     if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
         if QBCore and QBCore.Functions then
             local playerData = QBCore.Functions.GetPlayerData()
