@@ -3,8 +3,14 @@ RegisterCommand('modveh', function()
 
     -- Handle job retrieval based on the framework
     if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
-        local playerData = QBCore.Functions.GetPlayerData()
-        job = playerData and playerData.job and playerData.job.name or 'unknown'
+        -- Check if QBCore is defined
+        if QBCore and QBCore.Functions then
+            local playerData = QBCore.Functions.GetPlayerData()
+            job = playerData and playerData.job and playerData.job.name or 'unknown'
+        else
+            print("^1ERROR:^0 QBCore is not defined, please make sure the qb-core resource is started.")
+            job = 'unknown'
+        end
     elseif Config.Framework == 'esx' then
         local playerData = ESX.GetPlayerData()
         job = playerData and playerData.job and playerData.job.name or 'unknown'
@@ -12,7 +18,7 @@ RegisterCommand('modveh', function()
         job = 'standalone'
     end
 
-
+    -- Access control based on the player's job
     if Config.Framework ~= 'standalone' and not Config.JobAccess[job] then
         print("^1ERROR:^0 Access denied for job: " .. job)
 
@@ -25,6 +31,7 @@ RegisterCommand('modveh', function()
         return
     end
 
+    -- If access is granted, open the vehicle mod menu
     print("^2SUCCESS:^0 Access granted. Opening menu...")
     TriggerEvent('vehiclemods:client:openVehicleModMenu')
 end, false)
@@ -117,7 +124,7 @@ function OpenExtrasMenu()
             })
         end
     end
-
+    
     lib.registerContext({
         id = 'ExtrasMenu',
         title = 'Toggle Extras',
@@ -163,3 +170,4 @@ function OpenDoorsMenu()
     })
     lib.showContext('DoorsMenu')
 end
+
