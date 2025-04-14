@@ -12,8 +12,6 @@
 - Compatibility with **QBX** & **ESX** frameworks
 - **Change Vehicle Extras**: Add and remove up to 20 vehicle extras
 - **Custom Skins**: Change vehicle liveries
-- **Database Integration**: Save and retrieve modifications for user vehicle preference persistence
-- **Job-based Access**: Only allows first responders (police/ambulance) to modify emergency vehicles
 - **Standalone Compatibility**: Custom setup for servers not using QBCore or ESX
 
 ![Screenshot 2025-01-30 190859](https://github.com/user-attachments/assets/5b62ed1c-a2e7-4b71-b89a-47df75792435)
@@ -41,15 +39,12 @@ Clone or download this repository into your `resources` folder and ensure it's l
 
 ### 2. Configuration
 Before starting your server, open the `config.lua` file in the resource folder and set the `Config.Framework` to one of the following:
-- `'qb-core'` for **QBCore/QBX**
-- `'qbx_core'` for **QBX**
-- `'esx'` for **ESX**
-- `'standalone'` for a **custom setup** without a framework
+- `'standalone'` 
 
 ```lua
 -- Framework Selection Configuration
 Config = {}
-Config.Framework = 'standalone' -- Change this to 'qb-core', 'qbx_core', or 'esx' as needed
+Config.Framework = 'standalone' 
 ```
 
 ### 3. Modify the fxmanifest.lua
@@ -57,45 +52,8 @@ Open the `fxmanifest.lua` file in the resource folder and uncomment the line for
 
 ```lua
 dependencies {
-    -- Uncomment the framework you are using. If Standalone leave it as is.
-    -- 'qb-core',
-    -- 'qbx_core',
-    -- 'es_extended',
     'ox_lib'
 }
-```
-
-### 4. Set Up the Database
-Run the appropriate SQL script for your server's framework to create the `emergency_vehicle_mods` table.
-
-#### For QBCore:
-Run the SQL code in `qbcore_sql.sql`:
-```sql
-CREATE TABLE IF NOT EXISTS `emergency_vehicle_mods` (
-    `id` INT NOT NULL AUTO_INCREMENT,
-    `vehicle_model` VARCHAR(255) NOT NULL,
-    `skin` VARCHAR(255) DEFAULT NULL,
-    `extras` TEXT DEFAULT NULL,
-    `player_id` VARCHAR(255) NOT NULL,  -- Tracks player by identifier (optional)
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `vehicle_model_unique` (`vehicle_model`)
-);
-```
-
-#### For ESX:
-Run the SQL code in `esx_sql.sql`:
-```sql
-CREATE TABLE IF NOT EXISTS `emergency_vehicle_mods` (
-    `id` INT NOT NULL AUTO_INCREMENT,
-    `vehicle_model` VARCHAR(255) NOT NULL,
-    `skin` VARCHAR(255) DEFAULT NULL,
-    `extras` TEXT DEFAULT NULL,
-    `player_id` VARCHAR(255) NOT NULL,  -- Tracks player by identifier (optional)
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `vehicle_model_unique` (`vehicle_model`)
-);
 ```
 
 #### For Standalone:
