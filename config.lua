@@ -1,10 +1,15 @@
 Config = {}
 
--- Select the framework you're using: 'qb-core', 'qbc-core', 'esx', or 'standalone'
-Config.Framework = 'qb-core'  -- Change this value based on your server
+-- Framework set to standalone
+Config.Framework = 'standalone'
 
--- Access permissions for jobs
+-- Access permissions for jobs (can be modified as needed)
 Config.JobAccess = {
-    ['police'] = true,  -- Can be modified to add other jobs
-    ['ambulance'] = true
+    ['police'] = true,
+    ['ambulance'] = true,
+    -- You can add more jobs here if needed
+    ['standalone'] = true  -- This ensures anyone can use the menu in standalone mode
 }
+
+-- Menu command
+Config.Command = 'modveh'  -- The command to open the vehicle modification menu
