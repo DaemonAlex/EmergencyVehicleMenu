@@ -24,7 +24,7 @@ RegisterCommand('modveh', function()
     if Config.Framework ~= 'standalone' and not Config.JobAccess[job] then
         print("^1ERROR:^0 Access denied for job: " .. job)
 
-        if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
+        if Config.Framework == 'qb-core' or Config.Framework == 'qb-core' then
             TriggerEvent('ox_lib:notify', {title = 'Access Denied', description = 'You must be an authorized department to use this.', type = 'error'})
         elseif Config.Framework == 'esx' then
             ESX.ShowNotification('You must be an authorized department to use this.')
