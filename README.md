@@ -13,7 +13,7 @@ A powerful standalone FiveM script for modifying emergency and civilian vehicles
 ## Key Features
 
 ### Core Functionality
-- **Framework Flexible**: Works in standalone mode, QB-Core, or ESX
+- **Framework Flexible**: Works in standalone mode, QB-Core/Qbox, or ESX
 - **Vehicle Liveries**: Apply standard and custom YFT liveries to vehicles
 - **Custom Livery Management**: Add, remove, and organize custom liveries directly in-game
 - **Performance Upgrades**: Engine, brakes, transmission, suspension, armor, and turbo
