@@ -1470,7 +1470,6 @@ function OpenWheelSelectionMenu(wheelType)
             },
             onSelect = function()
                 SetVehicleMod(vehicle, 23, i, GetVehicleModVariation(vehicle, 23))
-                -- Also apply to rear wheels (in case of different back wheels)
                 if GetVehicleClass(vehicle) == 8 then -- Motorcycle
                     SetVehicleMod(vehicle, 24, i, GetVehicleModVariation(vehicle, 24))
                 end
@@ -1648,13 +1647,10 @@ function GetVehicleProperties(vehicle)
             end
         end
         
-        -- Handle tyres and windows
         local tyreSmokeColor = {GetVehicleTyreSmokeColor(vehicle)}
         
-        -- Check if the vehicle has custom livery
         local livery = GetVehicleLivery(vehicle)
         
-        -- Check for mod slot 48 livery (used by newer DLC vehicles and custom liveries)
         local modLivery = GetVehicleMod(vehicle, 48)
         
         return {
@@ -1728,7 +1724,6 @@ function GetVehicleProperties(vehicle)
     end
 end
 
--- Event to receive custom liveries from server
 RegisterNetEvent('vehiclemods:client:updateCustomLiveries')
 AddEventHandler('vehiclemods:client:updateCustomLiveries', function(customLiveries)
     Config.CustomLiveries = customLiveries
@@ -1738,17 +1733,14 @@ AddEventHandler('vehiclemods:client:updateCustomLiveries', function(customLiveri
     end
 end)
 
--- Event to receive livery files for a specific vehicle model
 RegisterNetEvent('vehiclemods:client:receiveAvailableLiveries')
 AddEventHandler('vehiclemods:client:receiveAvailableLiveries', function(vehicleModel, liveryFiles)
-    -- Store the list for use in menus
     if not AvailableLiveryFiles then
         AvailableLiveryFiles = {}
     end
     
     AvailableLiveryFiles[vehicleModel] = liveryFiles
     
-    -- Notify that files were found
     lib.notify({
         title = 'Livery Files',
         description = 'Found ' .. #liveryFiles .. ' livery files for ' .. vehicleModel,
@@ -1757,28 +1749,21 @@ AddEventHandler('vehiclemods:client:receiveAvailableLiveries', function(vehicleM
     })
 end)
 
--- Request custom liveries from server on resource start
 AddEventHandler('onClientResourceStart', function(resourceName)
     if GetCurrentResourceName() ~= resourceName then return end
     
-    -- Initialize variables
     ActiveCustomLiveries = {}
     AvailableLiveryFiles = {}
-    
-    -- Request custom liveries from server
+
     Citizen.SetTimeout(1000, function()
         TriggerServerEvent('vehiclemods:server:requestCustomLiveries')
     end)
 end)
 
--- Function to list available YFT files from the vehicle model's liveries folder
 function ListAvailableLiveryFiles(vehicleModel)
     TriggerServerEvent('vehiclemods:server:getAvailableLiveries', vehicleModel)
 end
 
--- Helper functions for improved menu usability
-
--- Function to get vehicle class name from vehicle class ID
 function GetVehicleClassNameFromVehicleClass(vehicleClass)
     local vehicleClassNames = {
         [0] = "Compact",
@@ -1899,7 +1884,6 @@ function FilteredLiveryMenu(searchTerm)
         end
     end
     
-    -- For custom liveries
     local vehicleModel = GetEntityModel(vehicle)
     local vehicleModelName = GetDisplayNameFromVehicleModel(vehicleModel):lower()
     
@@ -1936,7 +1920,6 @@ function FilteredLiveryMenu(searchTerm)
         })
     end
     
-    -- Add search option at the top
     table.insert(options, 1, {
         title = 'New Search',
         description = 'Search for a different livery',
@@ -1945,7 +1928,6 @@ function FilteredLiveryMenu(searchTerm)
         end
     })
     
-    -- Add option to show all liveries
     table.insert(options, 2, {
         title = 'Show All Liveries',
         description = 'Display all available liveries',
@@ -1967,15 +1949,11 @@ function FilteredLiveryMenu(searchTerm)
     lib.showContext('FilteredLiveryMenu')
 end
 
--- Preview function for liveries before applying
 function PreviewLivery(vehicle, liveryIndex)
-    -- Store original livery
     local originalLivery = GetVehicleLivery(vehicle)
     
-    -- Apply the preview livery
     SetVehicleLivery(vehicle, liveryIndex)
     
-    -- Notify user
     lib.notify({
         title = 'Livery Preview',
         description = 'Previewing Livery ' .. liveryIndex .. '. Press ENTER to apply or BACKSPACE to cancel.',
@@ -1983,15 +1961,13 @@ function PreviewLivery(vehicle, liveryIndex)
         duration = 5000
     })
     
-    -- Listen for key presses
     Citizen.CreateThread(function()
         local previewActive = true
         
         while previewActive do
             Citizen.Wait(0)
             
-            -- ENTER key to confirm
-            if IsControlJustPressed(0, 18) then -- 18 is ENTER key
+            if IsControlJustPressed(0, 18) then 
                 previewActive = false
                 lib.notify({
                     title = 'Livery Applied',
@@ -2001,10 +1977,8 @@ function PreviewLivery(vehicle, liveryIndex)
                 })
             end
             
-            -- BACKSPACE key to cancel
-            if IsControlJustPressed(0, 177) then -- 177 is BACKSPACE key
+            if IsControlJustPressed(0, 177) then 
                 previewActive = false
-                -- Restore original livery
                 SetVehicleLivery(vehicle, originalLivery)
                 lib.notify({
                     title = 'Preview Cancelled',
@@ -2014,14 +1988,12 @@ function PreviewLivery(vehicle, liveryIndex)
                 })
             end
             
-            -- Exit if player leaves vehicle
             if not IsPedInAnyVehicle(PlayerPedId(), false) then
                 previewActive = false
                 SetVehicleLivery(vehicle, originalLivery)
             end
         end
         
-        -- Reopen menu after preview
         OpenLiveryMenu()
     end)
 end
