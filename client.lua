@@ -1,7 +1,3 @@
--- Emergency Vehicle Modifications Menu
--- Client-side script
-
--- Register the command to open the menu
 RegisterCommand('modveh', function()
     local job = ''
     local QBCore = exports['qb-core']:GetCoreObject()
@@ -44,7 +40,6 @@ RegisterKeyMapping('modveh', 'Open Vehicle Modification Menu', 'keyboard', 'F7')
 ActiveCustomLiveries = {}
 AvailableLiveryFiles = {}
 
--- Event to open the main menu
 RegisterNetEvent('vehiclemods:client:openVehicleModMenu')
 AddEventHandler('vehiclemods:client:openVehicleModMenu', function()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
@@ -133,7 +128,6 @@ AddEventHandler('vehiclemods:client:openVehicleModMenu', function()
     lib.showContext('EmergencyVehicleMenu')
 end)
 
--- Updated to use both standard and custom liveries
 function OpenLiveryMenu()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
     
@@ -152,7 +146,6 @@ function OpenLiveryMenu()
     local currentLivery = GetVehicleLivery(vehicle)
     local numMods = GetNumVehicleMods(vehicle, 48)
     
-    -- Add search option if there are many liveries
     if (numLiveries > 5 or numMods > 5) then
         table.insert(options, {
             title = 'Search Liveries',
@@ -185,7 +178,7 @@ function OpenLiveryMenu()
             })
         end
     else
-        -- Check for mod slot 48 liveries (newer DLC vehicles)
+
         local currentMod = GetVehicleMod(vehicle, 48)
         
         if numMods > 0 then
@@ -220,7 +213,7 @@ function OpenLiveryMenu()
         end
     end
     
-    -- Add custom YFT liveries option if available for this vehicle
+
     local vehicleModel = GetEntityModel(vehicle)
     local vehicleModelName = GetDisplayNameFromVehicleModel(vehicleModel):lower()
     
@@ -244,7 +237,7 @@ function OpenLiveryMenu()
     lib.showContext('LiveryMenu')
 end
 
--- Function to apply custom YFT liveries based on the folder structure
+
 function ApplyCustomLivery(vehicle, liveryFile)
     if not vehicle or vehicle == 0 then
         lib.notify({
@@ -256,38 +249,30 @@ function ApplyCustomLivery(vehicle, liveryFile)
         return false
     end
     
-    -- Get the vehicle model
     local vehicleModel = GetEntityModel(vehicle)
     local vehicleModelName = GetDisplayNameFromVehicleModel(vehicleModel):lower()
     
-    -- Set the vehicle livery directly using the livery file path
     TriggerServerEvent('vehiclemods:server:applyCustomLivery', NetworkGetNetworkIdFromEntity(vehicle), vehicleModelName, liveryFile)
     
-    -- Return true if event was triggered successfully
     return true
 end
 
 -- Event to set a custom livery on a specific vehicle
 RegisterNetEvent('vehiclemods:client:setCustomLivery')
 AddEventHandler('vehiclemods:client:setCustomLivery', function(netId, vehicleModelName, liveryFile)
-    -- Get vehicle from network ID
     local vehicle = NetworkGetEntityFromNetworkId(netId)
     
     if not vehicle or not DoesEntityExist(vehicle) then
         return
     end
     
-    -- Apply the livery through the GTA native streaming system
-    -- Parse the livery file to get the base name without extension
     local baseName = string.match(liveryFile, "([^/]+)%.yft$")
     if not baseName then
         baseName = liveryFile:gsub(".yft", "")
     end
     
-    -- For model-specific folder structure
     local textureDict = vehicleModelName .. "_" .. baseName
     
-    -- Request the texture dictionary
     if not HasStreamedTextureDictLoaded(textureDict) then
         RequestStreamedTextureDict(textureDict)
         local timeout = 0
@@ -297,9 +282,7 @@ AddEventHandler('vehiclemods:client:setCustomLivery', function(netId, vehicleMod
         end
     end
     
-    -- If we successfully loaded the texture dictionary, apply it
     if HasStreamedTextureDictLoaded(textureDict) then
-        -- Store the livery info on the vehicle for persistence
         local vehicleEntityId = VehToNet(vehicle)
         if not ActiveCustomLiveries then ActiveCustomLiveries = {} end
         ActiveCustomLiveries[vehicleEntityId] = {
@@ -308,7 +291,6 @@ AddEventHandler('vehiclemods:client:setCustomLivery', function(netId, vehicleMod
             model = vehicleModelName
         }
         
-        -- Try to apply the livery texture
         local success = ApplyVehicleTexture(vehicle, textureDict, vehicleModelName)
         
         if success then
@@ -321,34 +303,18 @@ AddEventHandler('vehiclemods:client:setCustomLivery', function(netId, vehicleMod
     end
 end)
 
--- Function to apply a vehicle texture based on the folder structure
 function ApplyVehicleTexture(vehicle, textureDict, vehicleModelName)
-    -- This function applies the texture from the model-specific liveries folder to the vehicle
-    
-    -- Different approach based on how YFT files are structured
-    -- Most YFT liveries work by replacing one of the following:
-    -- 1. The vehicle's paintjob texture
-    -- 2. A specific livery texture slot
-    -- 3. The vehicle's generic 'livery' texture
-    
-    -- Method 1: Set vehicle mod to trigger livery texture change
+
     local liveryModCount = GetNumVehicleMods(vehicle, 48)
     if liveryModCount > 0 then
-        -- If this vehicle has mod slot 48 liveries, use mod 0 as base
         SetVehicleMod(vehicle, 48, 0, false)
     else
-        -- Try standard livery slot
         local liveryCount = GetVehicleLiveryCount(vehicle)
         if liveryCount > 0 then
             SetVehicleLivery(vehicle, 1) -- Use first livery as base
         end
     end
     
-    -- Method 2: Force texture dictionary to override vehicle texture
-    -- This is a simplified representation - the actual implementation would 
-    -- require native calls to override textures at the rendering level
-    
-    -- For game's purpose, consider the livery applied
     SetEntityRoutingBucket(vehicle, 100 + GetEntityRoutingBucket(vehicle)) -- Mark as modified
     Wait(50)
     SetEntityRoutingBucket(vehicle, GetEntityRoutingBucket(vehicle) - 100) -- Restore
@@ -356,7 +322,6 @@ function ApplyVehicleTexture(vehicle, textureDict, vehicleModelName)
     return true
 end
 
--- Event to clear a custom livery from a specific vehicle
 RegisterNetEvent('vehiclemods:client:clearCustomLivery')
 AddEventHandler('vehiclemods:client:clearCustomLivery', function(netId)
     local vehicle = NetworkGetEntityFromNetworkId(netId)
@@ -365,28 +330,23 @@ AddEventHandler('vehiclemods:client:clearCustomLivery', function(netId)
         return
     end
     
-    -- If we have an active custom livery for this vehicle, remove it
     local vehicleEntityId = VehToNet(vehicle)
     if ActiveCustomLiveries and ActiveCustomLiveries[vehicleEntityId] then
         local liveryInfo = ActiveCustomLiveries[vehicleEntityId]
         
-        -- Reset the vehicle appearance
         SetVehicleLivery(vehicle, 0) -- Reset to default livery
         SetVehicleMod(vehicle, 48, -1, false) -- Remove livery mod
         
-        -- Unload the texture dictionary to free memory
         if HasStreamedTextureDictLoaded(liveryInfo.dict) then
             SetStreamedTextureDictAsNoLongerNeeded(liveryInfo.dict)
         end
         
-        -- Remove from active list
         ActiveCustomLiveries[vehicleEntityId] = nil
         
         print("^2INFO:^0 Cleared custom livery from vehicle")
     end
 end)
 
--- Update the OpenCustomLiveriesMenu function to correctly handle liveries with the folder structure
 function OpenCustomLiveriesMenu()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
     local job = ''
@@ -412,14 +372,11 @@ function OpenCustomLiveriesMenu()
         return
     end
     
-    -- Get the vehicle model
     local vehicleModel = GetEntityModel(vehicle)
     local vehicleModelName = GetDisplayNameFromVehicleModel(vehicleModel):lower()
     
-    -- Check for available custom liveries in Config
     local availableLiveries = {}
     
-    -- Make sure Config.CustomLiveries exists
     if Config.CustomLiveries then
         availableLiveries = Config.CustomLiveries[vehicleModelName] or {}
     else
@@ -428,17 +385,13 @@ function OpenCustomLiveriesMenu()
     
     local options = {}
     
-    -- Add stock option
     table.insert(options, {
         title = 'Stock (No Livery)',
         description = 'Remove custom livery',
         onSelect = function()
-            -- First try to clear through standard livery
             SetVehicleLivery(vehicle, 0)
-            -- Also clear through mod slot 48
             SetVehicleMod(vehicle, 48, -1, false)
             
-            -- Clear any custom YFT livery
             TriggerServerEvent('vehiclemods:server:clearCustomLivery', NetworkGetNetworkIdFromEntity(vehicle))
             
             lib.notify({
@@ -451,14 +404,12 @@ function OpenCustomLiveriesMenu()
         end
     })
     
-    -- Add all configured custom liveries
     if availableLiveries and #availableLiveries > 0 then
         for i, livery in ipairs(availableLiveries) do
             table.insert(options, {
                 title = livery.name,
                 description = 'Apply ' .. livery.name .. ' livery',
                 onSelect = function()
-                    -- Apply the custom YFT livery
                     if ApplyCustomLivery(vehicle, livery.file) then
                         lib.notify({
                             title = 'Livery Applied',
@@ -472,7 +423,6 @@ function OpenCustomLiveriesMenu()
             })
         end
     else
-        -- If no custom liveries found
         table.insert(options, {
             title = 'No Custom Liveries',
             description = 'This vehicle has no custom YFT liveries configured',
@@ -480,7 +430,6 @@ function OpenCustomLiveriesMenu()
         })
     end
     
-    -- Add an option to add a new custom livery (for admins or authorized jobs)
     if Config.JobAccess[job] then
         table.insert(options, {
             title = 'Add New Livery',
@@ -501,9 +450,7 @@ function OpenCustomLiveriesMenu()
     lib.showContext('CustomLiveriesMenu')
 end
 
--- Function to add a new custom livery using the folder structure
 function OpenAddCustomLiveryMenu(vehicleModelName)
-    -- Create a text input prompt for livery name and file
     lib.showTextInput({
         title = 'Add Custom Livery',
         description = 'Enter the name and YFT file for the new livery:',
@@ -513,10 +460,8 @@ function OpenAddCustomLiveryMenu(vehicleModelName)
         },
         onSubmit = function(data)
             if data.name and data.file then
-                -- Send to server to add to database and update config
                 TriggerServerEvent('vehiclemods:server:addCustomLivery', vehicleModelName, data.name, data.file)
                 
-                -- Reopen the custom liveries menu after a short delay
                 Citizen.SetTimeout(500, function()
                     OpenCustomLiveriesMenu()
                 end)
@@ -651,13 +596,11 @@ function OpenNeonLayoutMenu()
             },
             onSelect = function()
                 if neonOption.index == -1 then
-                    -- Toggle all neons
                     local allEnabled = IsVehicleNeonLightEnabled(vehicle, 0)
                     for i = 0, 3 do
                         SetVehicleNeonLightEnabled(vehicle, i, not allEnabled)
                     end
                 else
-                    -- Toggle specific neon
                     SetVehicleNeonLightEnabled(vehicle, neonOption.index, not isEnabled)
                 end
                 
@@ -738,7 +681,6 @@ end
 function OpenCosmeticModsMenu()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
     
-    -- Define all cosmetic mod types
     local modTypes = {
         { name = "Spoiler", id = 0 },
         { name = "Front Bumper", id = 1 },
@@ -793,7 +735,6 @@ function OpenCosmeticModsMenu()
         end
     end
     
-    -- If there are no available mods
     if #options == 0 then
         table.insert(options, {
             title = 'No mods available',
@@ -818,7 +759,6 @@ function OpenModSelectionMenu(modType, modTypeName)
     local numMods = GetNumVehicleMods(vehicle, modType)
     local currentMod = GetVehicleMod(vehicle, modType)
     
-    -- Add stock option
     table.insert(options, {
         title = 'Stock ' .. modTypeName,
         description = 'Remove ' .. modTypeName .. ' modifications',
@@ -837,7 +777,6 @@ function OpenModSelectionMenu(modType, modTypeName)
         end
     })
     
-    -- Add all available mods
     for i = 0, numMods - 1 do
         local modName = GetLabelText(GetModTextLabel(vehicle, modType, i))
         if modName == "NULL" then
@@ -875,7 +814,6 @@ function OpenModSelectionMenu(modType, modTypeName)
     lib.showContext('ModSelectionMenu')
 end
 
--- Performance Menu
 function OpenPerformanceMenu()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
     
@@ -961,7 +899,6 @@ function OpenPerformanceModMenu(modType, modTypeName)
     local numMods = GetNumVehicleMods(vehicle, modType)
     local currentMod = GetVehicleMod(vehicle, modType)
     
-    -- Add stock option
     table.insert(options, {
         title = 'Stock ' .. modTypeName,
         description = 'Remove ' .. modTypeName .. ' upgrades',
@@ -980,7 +917,6 @@ function OpenPerformanceModMenu(modType, modTypeName)
         end
     })
     
-    -- Get mod names based on type (with appropriate descriptive names)
     local modNames = {}
     if modType == 11 then  -- Engine
         modNames = {"EMS Upgrade, Level 1", "EMS Upgrade, Level 2", "EMS Upgrade, Level 3", "EMS Upgrade, Level 4"}
@@ -994,7 +930,6 @@ function OpenPerformanceModMenu(modType, modTypeName)
         modNames = {"Armor Upgrade 20%", "Armor Upgrade 40%", "Armor Upgrade 60%", "Armor Upgrade 80%", "Armor Upgrade 100%"}
     end
     
-    -- Add all available mods
     for i = 0, numMods - 1 do
         local modName = (modNames[i+1] ~= nil) and modNames[i+1] or (modTypeName .. " Level " .. (i + 1))
         local isActive = (currentMod == i)
@@ -1120,7 +1055,6 @@ function OpenDoorsMenu()
                 end
             end
             
-            -- Close or open all doors based on current state
             for _, door in pairs(doors) do
                 if anyDoorOpen then
                     SetVehicleDoorShut(vehicle, door.index, false)
