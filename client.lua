@@ -21,17 +21,17 @@ RegisterCommand('modveh', function()
         job = 'standalone'
     end
 
-    if Config.Framework ~= 'standalone' and not Config.JobAccess[job] then
-        print("^1ERROR:^0 Access denied for job: " .. job)
+if Config.Framework ~= 'standalone' and not Config.JobAccess[job] then
+    print("^1ERROR:^0 Access denied for job: " .. job)
 
-        if Config.Framework == 'qb-core' or Config.Framework == 'qb-core' then
-            TriggerEvent('ox_lib:notify', {title = 'Access Denied', description = 'You must be an authorized department to use this.', type = 'error'})
-        elseif Config.Framework == 'esx' then
-            ESX.ShowNotification('You must be an authorized department to use this.')
-        end
-
-        return
+    if Config.Framework == 'qb-core' or Config.Framework == 'qbx-core' then
+        TriggerEvent('ox_lib:notify', {title = 'Access Denied', description = 'You must be an authorized department to use this.', type = 'error'})
+    elseif Config.Framework == 'esx' then
+        ESX.ShowNotification('You must be an authorized department to use this.')
     end
+
+    return
+end
 
     print("^2SUCCESS:^0 Access granted. Opening menu...")
     TriggerEvent('vehiclemods:client:openVehicleModMenu')
