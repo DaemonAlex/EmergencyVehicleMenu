@@ -21,7 +21,7 @@ RegisterCommand('modveh', function()
         job = 'standalone'
     end
 
-if Config.Framework ~= 'standalone' and not Config.JobAccess[job] then
+if Config.Framework == 'qb-core' or Config.Framework == 'qbx-core' then
     print("^1ERROR:^0 Access denied for job: " .. job)
 
     if Config.Framework == 'qb-core' or Config.Framework == 'qbx-core' then
@@ -389,8 +389,20 @@ end)
 -- Update the OpenCustomLiveriesMenu function to correctly handle liveries with the folder structure
 function OpenCustomLiveriesMenu()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
-    
-    if vehicle == 0 then
+    local job = ''
+    if Config.Framework == 'qb-core' or Config.Framework == 'qbx-core' then
+        local QBCore = exports['qb-core']:GetCoreObject()
+        if QBCore and QBCore.Functions then
+            local playerData = QBCore.Functions.GetPlayerData()
+            job = playerData and playerData.job and playerData.job.name or 'unknown'
+        end
+    elseif Config.Framework == 'esx' then
+        local playerData = ESX.GetPlayerData()
+        job = playerData and playerData.job and playerData.job.name or 'unknown'
+    elseif Config.Framework == 'standalone' then
+        job = 'standalone'
+    end
+     if vehicle == 0 then
         lib.notify({
             title = 'Error',
             description = 'You need to be in a vehicle to change liveries',
