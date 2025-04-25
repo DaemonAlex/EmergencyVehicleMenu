@@ -1,13 +1,10 @@
--- Emergency Vehicle Modifications Config
 Config = Config or {}
 
 -- Framework options: 'qb-core', 'qbc-core', 'esx', 'standalone'
 Config.Framework = 'standalone'
 
--- Debug mode
 Config.Debug = false
 
--- Job access configuration - who can access the menu
 Config.JobAccess = {
     -- Original jobs
     ['police'] = true,
@@ -30,7 +27,6 @@ Config.JobAccess = {
     ['fire'] = true     -- Fire Department (already included but listed again for clarity)
 }
 
--- Initialize the custom liveries table if not already defined
 Config.CustomLiveries = Config.CustomLiveries or {}
 
 -- Examples with the correct folder structure
@@ -75,7 +71,6 @@ Config.VehicleModels = {
     }
 }
 
--- Vehicle mod slot limitations
 Config.MaxModSlots = 40  -- Maximum number of mod slots supported
 Config.MaxLiverySlots = 20  -- Maximum number of livery slots supported
 
@@ -87,40 +82,32 @@ Config.FolderStructure = {
     ModParts = "modparts"
 }
 
--- Function to get full path for a livery file
 function Config.GetLiveryPath(vehicleModel, liveryFile)
-    -- If the path already includes the liveries folder, use as is
     if string.match(liveryFile, "^" .. Config.FolderStructure.Liveries .. "/") then
         return Config.FolderStructure.BasePath .. "/" .. vehicleModel .. "/" .. liveryFile
     end
     
-    -- Otherwise, construct the full path
     return Config.FolderStructure.BasePath .. "/" .. vehicleModel .. "/" .. Config.FolderStructure.Liveries .. "/" .. liveryFile
 end
 
--- Function to get full path for a model file
 function Config.GetModelPath(vehicleModel, modelFile)
-    -- If the path already includes the model folder, use as is
     if string.match(modelFile, "^" .. Config.FolderStructure.Models .. "/") then
         return Config.FolderStructure.BasePath .. "/" .. vehicleModel .. "/" .. modelFile
     end
     
-    -- Otherwise, construct the full path
     return Config.FolderStructure.BasePath .. "/" .. vehicleModel .. "/" .. Config.FolderStructure.Models .. "/" .. modelFile
 end
 
--- Function to get full path for a mod part file
 function Config.GetModPartPath(vehicleModel, partFile)
     -- If the path already includes the modparts folder, use as is
     if string.match(partFile, "^" .. Config.FolderStructure.ModParts .. "/") then
         return Config.FolderStructure.BasePath .. "/" .. vehicleModel .. "/" .. partFile
     end
     
-    -- Otherwise, construct the full path
     return Config.FolderStructure.BasePath .. "/" .. vehicleModel .. "/" .. Config.FolderStructure.ModParts .. "/" .. partFile
 end
 
--- Sample emergency vehicle models
+-- add your emergency vehicle models
 Config.EmergencyVehicleModels = {
     "police",
     "police2",
@@ -136,7 +123,6 @@ Config.EmergencyVehicleModels = {
     "pranger"
 }
 
--- Function to check if a job is allowed to use the menu
 function Config.IsJobAllowed(job)
     return Config.JobAccess[job] or false
 end
