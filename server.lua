@@ -15,7 +15,111 @@ elseif Config.Framework == 'esx' then
     TriggerEvent('esx:getSharedObject', function(obj) ESX = obj end)
 end
 
--- Verify job access
+function DoesFileExist(path)
+    local f = LoadResourceFile(GetCurrentResourceName(), path)
+    return f ~= nil
+end
+
+-- Function to scan directories for YFT files (simulate directory scanning)
+function ScanForYFTFiles(resourceDir, vehicleModel)
+    local liveriesPath = resourceDir .. "/" .. vehicleModel .. "/liveries"
+    local modelsPath = resourceDir .. "/" .. vehicleModel .. "/model"
+    local modpartsPath = resourceDir .. "/" .. vehicleModel .. "/modparts"
+    
+    local liveryFiles = {}
+    local modelFiles = {}
+    local modpartFiles = {}
+    
+    -- In a real implementation, you would scan the directory
+    -- For now, we'll just print debug info
+    if Config.Debug then
+        print("^3DEBUG:^0 Would scan for YFT files in:")
+        print("  Liveries: " .. liveriesPath)
+        print("  Models: " .. modelsPath)
+        print("  ModParts: " .. modpartsPath)
+    end
+    
+    return {
+        liveries = liveryFiles,
+        models = modelFiles,
+        modparts = modpartFiles
+    }
+end
+
+-- Enhanced initialization function for resource start
+CreateThread(function()
+    Wait(1000) -- Wait for oxmysql to initialize
+
+    -- Create database tables if they don't exist
+    ox_mysql:execute([[
+        CREATE TABLE IF NOT EXISTS custom_liveries (
+            id INT NOT NULL AUTO_INCREMENT,
+            vehicle_model VARCHAR(255) NOT NULL,
+            livery_name VARCHAR(255) NOT NULL,
+            livery_file VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id)
+        )
+    ]], {}, function(result)
+        if result then
+            print("^2INFO:^0 custom_liveries table created or already exists.")
+        else
+            print("^1ERROR:^0 Failed to create custom_liveries table.")
+        end
+    end)
+
+    -- Create emergency_vehicle_mods table if it doesn't exist
+    ox_mysql:execute([[
+        CREATE TABLE IF NOT EXISTS emergency_vehicle_mods (
+            id INT NOT NULL AUTO_INCREMENT,
+            vehicle_model VARCHAR(255) NOT NULL,
+            extras TEXT,
+            player_id VARCHAR(255),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY vehicle_model_unique (vehicle_model)
+        )
+    ]], {}, function(result)
+        if result then
+            print("^2INFO:^0 emergency_vehicle_mods table created or already exists.")
+        else
+            print("^1ERROR:^0 Failed to create emergency_vehicle_mods table.")
+        end
+    end)
+
+    ox_mysql:execute("SELECT vehicle_model, livery_name, livery_file FROM custom_liveries", {}, function(result)
+        if result and #result > 0 then
+            for _, livery in ipairs(result) do
+                if not Config.CustomLiveries[livery.vehicle_model] then
+                    Config.CustomLiveries[livery.vehicle_model] = {}
+                end
+                
+                table.insert(Config.CustomLiveries[livery.vehicle_model], {
+                    name = livery.livery_name,
+                    file = livery.livery_file
+                })
+            end
+            
+            print("^2INFO:^0 Loaded " .. #result .. " custom liveries from database.")
+        else
+            print("^3INFO:^0 No custom liveries found in database.")
+        end
+    end)
+
+    print("^2INFO:^0 Validating vehicle resource directories...")
+    for _, vehicleModel in ipairs(Config.EmergencyVehicleModels) do
+        local resourceDir = Config.GetVehicleResourceDir(vehicleModel)
+        
+        if Config.Debug then
+            Config.DebugPaths(vehicleModel)
+            
+            local files = ScanForYFTFiles(resourceDir, vehicleModel)
+        end
+    end
+    
+    print("^2INFO:^0 Emergency Vehicle Modifications initialized successfully.")
+end)
+
 RegisterNetEvent('vehiclemods:server:verifyJob')
 AddEventHandler('vehiclemods:server:verifyJob', function()
     local src = source
@@ -59,7 +163,6 @@ AddEventHandler('vehiclemods:server:applyCustomLivery', function(netId, vehicleM
         return
     end
     
-    -- Broadcast to all clients to synchronize the custom livery
     TriggerClientEvent('vehiclemods:client:setCustomLivery', -1, netId, vehicleModelName, liveryFile)
     
     if Config.Debug then
@@ -67,7 +170,6 @@ AddEventHandler('vehiclemods:server:applyCustomLivery', function(netId, vehicleM
     end
 end)
 
--- Clear a custom livery from a vehicle
 RegisterNetEvent('vehiclemods:server:clearCustomLivery')
 AddEventHandler('vehiclemods:server:clearCustomLivery', function(netId)
     -- Broadcast to all clients to clear the custom livery
