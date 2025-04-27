@@ -1,4 +1,4 @@
--- Emergency Vehicle Modifications Menu
+-- Vehicle Modification System - Standalone Edition
 -- Server-side script
 
 if not Config then
@@ -6,47 +6,9 @@ if not Config then
     return
 end
 
-local QBCore, ESX
+-- Initialize database
 local ox_mysql = exports['oxmysql']
 
-if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
-    QBCore = exports['qb-core']:GetCoreObject()
-elseif Config.Framework == 'esx' then
-    TriggerEvent('esx:getSharedObject', function(obj) ESX = obj end)
-end
-
-function DoesFileExist(path)
-    local f = LoadResourceFile(GetCurrentResourceName(), path)
-    return f ~= nil
-end
-
--- Function to scan directories for YFT files (simulate directory scanning)
-function ScanForYFTFiles(resourceDir, vehicleModel)
-    local liveriesPath = resourceDir .. "/" .. vehicleModel .. "/liveries"
-    local modelsPath = resourceDir .. "/" .. vehicleModel .. "/model"
-    local modpartsPath = resourceDir .. "/" .. vehicleModel .. "/modparts"
-    
-    local liveryFiles = {}
-    local modelFiles = {}
-    local modpartFiles = {}
-    
-    -- In a real implementation, you would scan the directory
-    -- For now, we'll just print debug info
-    if Config.Debug then
-        print("^3DEBUG:^0 Would scan for YFT files in:")
-        print("  Liveries: " .. liveriesPath)
-        print("  Models: " .. modelsPath)
-        print("  ModParts: " .. modpartsPath)
-    end
-    
-    return {
-        liveries = liveryFiles,
-        models = modelFiles,
-        modparts = modpartFiles
-    }
-end
-
--- Enhanced initialization function for resource start
 CreateThread(function()
     Wait(1000) -- Wait for oxmysql to initialize
 
@@ -68,9 +30,9 @@ CreateThread(function()
         end
     end)
 
-    -- Create emergency_vehicle_mods table if it doesn't exist
+    -- Create vehicle_mods table if it doesn't exist
     ox_mysql:execute([[
-        CREATE TABLE IF NOT EXISTS emergency_vehicle_mods (
+        CREATE TABLE IF NOT EXISTS vehicle_mods (
             id INT NOT NULL AUTO_INCREMENT,
             vehicle_model VARCHAR(255) NOT NULL,
             extras TEXT,
@@ -81,12 +43,13 @@ CreateThread(function()
         )
     ]], {}, function(result)
         if result then
-            print("^2INFO:^0 emergency_vehicle_mods table created or already exists.")
+            print("^2INFO:^0 vehicle_mods table created or already exists.")
         else
-            print("^1ERROR:^0 Failed to create emergency_vehicle_mods table.")
+            print("^1ERROR:^0 Failed to create vehicle_mods table.")
         end
     end)
 
+    -- Load custom liveries from database
     ox_mysql:execute("SELECT vehicle_model, livery_name, livery_file FROM custom_liveries", {}, function(result)
         if result and #result > 0 then
             for _, livery in ipairs(result) do
@@ -105,46 +68,8 @@ CreateThread(function()
             print("^3INFO:^0 No custom liveries found in database.")
         end
     end)
-
-    print("^2INFO:^0 Validating vehicle resource directories...")
-    for _, vehicleModel in ipairs(Config.EmergencyVehicleModels) do
-        local resourceDir = Config.GetVehicleResourceDir(vehicleModel)
-        
-        if Config.Debug then
-            Config.DebugPaths(vehicleModel)
-            
-            local files = ScanForYFTFiles(resourceDir, vehicleModel)
-        end
-    end
     
-    print("^2INFO:^0 Emergency Vehicle Modifications initialized successfully.")
-end)
-
-RegisterNetEvent('vehiclemods:server:verifyJob')
-AddEventHandler('vehiclemods:server:verifyJob', function()
-    local src = source
-    local Player
-
-    if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
-        Player = QBCore.Functions.GetPlayer(src)
-    elseif Config.Framework == 'esx' then
-        Player = ESX.GetPlayerFromId(src)
-    elseif Config.Framework == 'standalone' then
-        Player = { job = { name = 'standalone' } }
-    end
-
-    if Player then
-        local job = Player.job.name
-        if Config.JobAccess[job] then
-            TriggerClientEvent('vehiclemods:client:openVehicleModMenu', src)
-        else
-            TriggerClientEvent('ox_lib:notify', src, {
-                title = 'Access Denied', 
-                description = 'You must be an authorized department to use this.', 
-                type = 'error'
-            })
-        end
-    end
+    print("^2INFO:^0 Vehicle Modification System initialized successfully.")
 end)
 
 -- Apply a custom livery to a vehicle
@@ -170,6 +95,7 @@ AddEventHandler('vehiclemods:server:applyCustomLivery', function(netId, vehicleM
     end
 end)
 
+-- Clear custom livery from a vehicle
 RegisterNetEvent('vehiclemods:server:clearCustomLivery')
 AddEventHandler('vehiclemods:server:clearCustomLivery', function(netId)
     -- Broadcast to all clients to clear the custom livery
@@ -180,132 +106,41 @@ AddEventHandler('vehiclemods:server:clearCustomLivery', function(netId)
     end
 end)
 
--- Event handler to save vehicle modifications
+-- Save vehicle modifications
 RegisterNetEvent('vehiclemods:server:saveModifications')
 AddEventHandler('vehiclemods:server:saveModifications', function(vehicleModel, vehicleProps)
     local src = source
-    local Player
+    local playerId = tostring(src) -- In standalone mode, use the player's server ID
     
     if Config.Debug then
         print("^2DEBUG:^0 Saving modifications for vehicle: " .. vehicleModel)
     end
-
-    if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
-        Player = QBCore.Functions.GetPlayer(src)
-    elseif Config.Framework == 'esx' then
-        Player = ESX.GetPlayerFromId(src)
-    elseif Config.Framework == 'standalone' then
-        Player = { job = { name = 'standalone' }, identifier = tostring(src) }
-    end
-
-    if Player then
-        local playerId = nil
+    
+    ox_mysql:execute("INSERT INTO vehicle_mods (vehicle_model, extras, player_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE extras = VALUES(extras)",
+        {vehicleModel, vehicleProps, playerId})
         
-        if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
-            playerId = Player.PlayerData.citizenid
-        elseif Config.Framework == 'esx' then
-            playerId = Player.identifier
-        elseif Config.Framework == 'standalone' then
-            playerId = Player.identifier
-        end
-        
-        if playerId then
-            ox_mysql:execute("INSERT INTO emergency_vehicle_mods (vehicle_model, extras, player_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE extras = VALUES(extras)",
-                {vehicleModel, vehicleProps, playerId})
-                
-            TriggerClientEvent('ox_lib:notify', src, {
-                title = 'Vehicle Saved',
-                description = 'Your vehicle configuration has been saved.',
-                type = 'success',
-                duration = 5000
-            })
-        else
-            TriggerClientEvent('ox_lib:notify', src, {
-                title = 'Error',
-                description = 'Could not identify player.',
-                type = 'error',
-                duration = 5000
-            })
-        end
-    end
+    TriggerClientEvent('ox_lib:notify', src, {
+        title = 'Vehicle Saved',
+        description = 'Your vehicle configuration has been saved.',
+        type = 'success',
+        duration = 5000
+    })
 end)
 
--- Event handler to retrieve vehicle modifications
-RegisterNetEvent('vehiclemods:server:getModifications')
-AddEventHandler('vehiclemods:server:getModifications', function(vehicleModel)
-    local src = source
-    
-    if Config.Debug then
-        print("^2DEBUG:^0 Retrieving modifications for vehicle: " .. vehicleModel)
-    end
-    
-    ox_mysql:execute("SELECT extras FROM emergency_vehicle_mods WHERE vehicle_model = ?", {vehicleModel}, function(result)
-        if result and #result > 0 then
-            TriggerClientEvent('vehiclemods:client:returnModifications', src, result[1])
-        else
-            TriggerClientEvent('vehiclemods:client:returnModifications', src, nil)
-        end
-    end)
-end)
-
--- Send all custom liveries to a client
-RegisterNetEvent('vehiclemods:server:requestCustomLiveries')
-AddEventHandler('vehiclemods:server:requestCustomLiveries', function()
-    local src = source
-    
-    -- Load custom liveries from database and send to client
-    ox_mysql:execute("SELECT vehicle_model, livery_name, livery_file FROM custom_liveries", {}, function(result)
-        local customLiveries = {}
-        
-        if result and #result > 0 then
-            for _, livery in ipairs(result) do
-                if not customLiveries[livery.vehicle_model] then
-                    customLiveries[livery.vehicle_model] = {}
-                end
-                
-                table.insert(customLiveries[livery.vehicle_model], {
-                    name = livery.livery_name,
-                    file = livery.livery_file
-                })
-            end
-            
-            if Config.Debug then
-                print("^2DEBUG:^0 Sending " .. #result .. " custom liveries to client " .. src)
-            end
-        end
-        
-        TriggerClientEvent('vehiclemods:client:updateCustomLiveries', src, customLiveries)
-    end)
-end)
-
--- Add a new livery
+-- Add a new custom livery
 RegisterNetEvent('vehiclemods:server:addCustomLivery')
 AddEventHandler('vehiclemods:server:addCustomLivery', function(vehicleModel, liveryName, liveryFile)
     local src = source
     
-    -- Check if player has permission (admin or authorized job)
-    local Player
-    local hasPermission = false
-    
-    if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
-        Player = QBCore.Functions.GetPlayer(src)
-        hasPermission = Player.PlayerData.permission == "admin" or Player.PlayerData.permission == "god"
-    elseif Config.Framework == 'esx' then
-        Player = ESX.GetPlayerFromId(src)
-        hasPermission = Player.getGroup() == "admin" or Player.getGroup() == "superadmin"
-    elseif Config.Framework == 'standalone' then
-        -- In standalone mode, check if they're in the Config.JobAccess list
-        hasPermission = true
+    -- Validate that the livery file path points to the liveries folder
+    if not string.match(liveryFile, "^liveries/") then
+        -- If file doesn't start with liveries/, prefix it
+        liveryFile = "liveries/" .. liveryFile
     end
     
-    if not hasPermission then
-        TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Permission Denied',
-            description = 'You do not have permission to add custom liveries.',
-            type = 'error',
-            duration = 5000
-        })
-        return
+    -- Ensure the file has .yft extension
+    if not string.match(liveryFile, "%.yft$") then
+        liveryFile = liveryFile .. ".yft"
     end
     
     -- First, check if the vehicle model exists in the custom liveries config
@@ -322,17 +157,6 @@ AddEventHandler('vehiclemods:server:addCustomLivery', function(vehicleModel, liv
             duration = 5000
         })
         return
-    end
-    
-    -- Validate that the livery file path points to the liveries folder
-    if not string.match(liveryFile, "^liveries/") then
-        -- If file doesn't start with liveries/, prefix it
-        liveryFile = "liveries/" .. liveryFile
-    end
-    
-    -- Ensure the file has .yft extension
-    if not string.match(liveryFile, "%.yft$") then
-        liveryFile = liveryFile .. ".yft"
     end
     
     -- Add the new livery
@@ -360,30 +184,6 @@ end)
 RegisterNetEvent('vehiclemods:server:removeCustomLivery')
 AddEventHandler('vehiclemods:server:removeCustomLivery', function(vehicleModel, liveryName)
     local src = source
-    
-    -- Check if player has permission
-    local Player
-    local hasPermission = false
-    
-    if Config.Framework == 'qb-core' or Config.Framework == 'qbc-core' then
-        Player = QBCore.Functions.GetPlayer(src)
-        hasPermission = Player.PlayerData.permission == "admin" or Player.PlayerData.permission == "god"
-    elseif Config.Framework == 'esx' then
-        Player = ESX.GetPlayerFromId(src)
-        hasPermission = Player.getGroup() == "admin" or Player.getGroup() == "superadmin"
-    elseif Config.Framework == 'standalone' then
-        hasPermission = true
-    end
-    
-    if not hasPermission then
-        TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Permission Denied',
-            description = 'You do not have permission to remove custom liveries.',
-            type = 'error',
-            duration = 5000
-        })
-        return
-    end
     
     -- Check if the vehicle model exists in the custom liveries config
     if not Config.CustomLiveries[vehicleModel:lower()] then
@@ -430,78 +230,17 @@ AddEventHandler('vehiclemods:server:removeCustomLivery', function(vehicleModel, 
     end
 end)
 
--- Get available livery files
-RegisterNetEvent('vehiclemods:server:getAvailableLiveries')
-AddEventHandler('vehiclemods:server:getAvailableLiveries', function(vehicleModel)
+-- Send all custom liveries to a client when requested
+RegisterNetEvent('vehiclemods:server:requestCustomLiveries')
+AddEventHandler('vehiclemods:server:requestCustomLiveries', function()
     local src = source
-    local liveryFiles = {}
-    
-    -- Simulated list for now - in production, this would scan files
-    local simulatedFiles = {
-        ["police"] = {
-            "liveries/police_livery1.yft",
-            "liveries/police_livery2.yft",
-            "liveries/police_bcso.yft"
-        },
-        ["sheriff"] = {
-            "liveries/sheriff_livery1.yft",
-            "liveries/sheriff_livery2.yft"
-        },
-        ["ambulance"] = {
-            "liveries/ambulance_livery1.yft",
-            "liveries/ambulance_livery2.yft"
-        }
-    }
-    
-    -- Return the simulated files for the requested vehicle model
-    if simulatedFiles[vehicleModel] then
-        liveryFiles = simulatedFiles[vehicleModel]
-    end
-    
-    TriggerClientEvent('vehiclemods:client:receiveAvailableLiveries', src, vehicleModel, liveryFiles)
+    TriggerClientEvent('vehiclemods:client:updateCustomLiveries', src, Config.CustomLiveries)
 end)
 
--- Create database tables during resource start
-CreateThread(function()
-    Wait(1000) -- Wait for oxmysql to initialize
-
-    -- Create custom_liveries table if it doesn't exist
-    ox_mysql:execute([[
-        CREATE TABLE IF NOT EXISTS custom_liveries (
-            id INT NOT NULL AUTO_INCREMENT,
-            vehicle_model VARCHAR(255) NOT NULL,
-            livery_name VARCHAR(255) NOT NULL,
-            livery_file VARCHAR(255) NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (id)
-        )
-    ]], {}, function(result)
-        if result then
-            print("^2INFO:^0 custom_liveries table created or already exists.")
-        else
-            print("^1ERROR:^0 Failed to create custom_liveries table.")
-        end
-    end)
-
-    -- Create emergency_vehicle_mods table if it doesn't exist
-    ox_mysql:execute([[
-        CREATE TABLE IF NOT EXISTS emergency_vehicle_mods (
-            id INT NOT NULL AUTO_INCREMENT,
-            vehicle_model VARCHAR(255) NOT NULL,
-            extras TEXT,
-            player_id VARCHAR(255),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            UNIQUE KEY vehicle_model_unique (vehicle_model)
-        )
-    ]], {}, function(result)
-        if result then
-            print("^2INFO:^0 emergency_vehicle_mods table created or already exists.")
-        else
-            print("^1ERROR:^0 Failed to create emergency_vehicle_mods table.")
-        end
-    end)
-
+-- Initialize custom liveries when resource starts
+AddEventHandler('onResourceStart', function(resourceName)
+    if GetCurrentResourceName() ~= resourceName then return end
+    
     -- Load all custom liveries from database
     ox_mysql:execute("SELECT vehicle_model, livery_name, livery_file FROM custom_liveries", {}, function(result)
         if result and #result > 0 then
