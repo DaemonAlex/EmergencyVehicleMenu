@@ -147,7 +147,7 @@ AddEventHandler('vehiclemods:server:addCustomLivery', function(vehicleModel, liv
     if not Config.CustomLiveries[vehicleModel:lower()] then
         Config.CustomLiveries[vehicleModel:lower()] = {}
     end
-    
+        
     -- Check if we've reached the limit of 20 liveries for this vehicle
     if #Config.CustomLiveries[vehicleModel:lower()] >= 20 then
         TriggerClientEvent('ox_lib:notify', src, {
@@ -178,6 +178,31 @@ AddEventHandler('vehiclemods:server:addCustomLivery', function(vehicleModel, liv
     
     -- Broadcast the updated config to all clients
     TriggerClientEvent('vehiclemods:client:updateCustomLiveries', -1, Config.CustomLiveries)
+end)
+
+-- Request vehicle configuration
+RegisterNetEvent('vehiclemods:server:requestVehicleConfig')
+AddEventHandler('vehiclemods:server:requestVehicleConfig', function(vehicleModel)
+    local src = source
+    local playerId = tostring(src) -- In standalone mode, use the player's server ID
+    
+    -- Check if config exists in database
+    ox_mysql:execute('SELECT extras FROM vehicle_mods WHERE vehicle_model = ?', {vehicleModel}, 
+        function(result)
+            if result and result[1] and result[1].extras then
+                -- Send the configuration back to the client
+                TriggerClientEvent('vehiclemods:client:applyVehicleConfig', src, vehicleModel, result[1].extras)
+                
+                if Config.Debug then
+                    print("^2DEBUG:^0 Sent saved configuration for " .. vehicleModel .. " to player " .. src)
+                end
+            else
+                if Config.Debug then
+                    print("^3DEBUG:^0 No saved configuration found for " .. vehicleModel)
+                end
+            end
+        end
+    )
 end)
 
 -- Remove a custom livery
