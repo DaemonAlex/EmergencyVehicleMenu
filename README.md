@@ -101,7 +101,7 @@ Current Structure in Your Code
 text
 [vehiclename]
 ├──fxmanifest.lua
-└── stream/
+└── stream
         ├── vehicle_livery1.yft
         ├── vehicle_livery2.yft
         ├── vehicle.yft
