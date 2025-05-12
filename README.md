@@ -113,20 +113,11 @@ text
 CREATE TABLE IF NOT EXISTS `vehicle_mods` (
     `id` INT NOT NULL AUTO_INCREMENT,
     `vehicle_model` VARCHAR(255) NOT NULL,
-    `extras` TEXT DEFAULT NULL,
+    `extras` TEXT DEFAULT NULL, -- Stores all vehicle properties as JSON
     `player_id` VARCHAR(255) DEFAULT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     UNIQUE KEY `vehicle_model_unique` (`vehicle_model`)
-);
-
-CREATE TABLE IF NOT EXISTS `custom_liveries` (
-    `id` INT NOT NULL AUTO_INCREMENT,
-    `vehicle_model` VARCHAR(255) NOT NULL,
-    `livery_name` VARCHAR(255) NOT NULL,
-    `livery_file` VARCHAR(255) NOT NULL,
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`)
 );
 ```
 ### Adding Custom Liveries
