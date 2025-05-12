@@ -92,22 +92,21 @@ Config.EnabledModifications = {
 ## Directory Structure
 ```text
 resource_folder/
-├── client.lua
-├── config.lua
-├── fxmanifest.lua
-├── server.lua
+        └── vehicle_lightbar_standard.yft
+
+Vehicle Stream Directory Structure Validation
+The directory structure you've provided doesn't match what's expected by the script. Let me clarify how the script expects liveries to be organized:
+
+Current Structure in Your Code
+text
+[vehiclename]
+├──fxmanifest.lua
 └── stream/
-    └── [vehiclemodelname]/  -- Different for each vehicle based on model name
-        ├── liveries/
-        │   ├── vehicle_livery1.yft
-        │   ├── vehicle_livery2.yft
-        │   └── ...
-        ├── model/
-        │   ├── vehicle.yft
-        │   └── ...
-        └── modparts/
-            ├── vehicle_lightbar_standard.yft
-            └── ...
+        ├── vehicle_livery1.yft
+        ├── vehicle_livery2.yft
+        ├── vehicle.yft
+        ├── modparts.yft
+        └── vehicle_lightbar_standard.yft
 ```
 ## Database Tables
 ```sql
@@ -132,9 +131,9 @@ CREATE TABLE IF NOT EXISTS `custom_liveries` (
 ```
 ### Adding Custom Liveries
 Place your YFT livery files in the appropriate folders within the stream directory:
-- For police vehicles: `stream/police/liveries/`
-- For ambulances: `stream/ambulance/liveries/`
-- For other vehicles: `stream/[vehiclemodel]/liveries/`
+- For police vehicles: `stream/liveries/`
+- For ambulances: `stream/liveries/`
+- For other vehicles: `stream/liveries/`
 
 ## Coming Soon
 - Vehicle-specific configuration profiles
