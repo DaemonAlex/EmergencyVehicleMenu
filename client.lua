@@ -8,6 +8,19 @@ end
 
 -- Command to open the vehicle modification menu
 RegisterCommand('modveh', function()
+    local playerCoords = GetEntityCoords(PlayerPedId())
+    local inZone, zoneInfo = Config.IsInModificationZone(playerCoords)
+    
+    if not inZone then
+        lib.notify({
+            title = 'Access Denied',
+            description = zoneInfo.message,
+            type = 'error',
+            duration = 5000
+        })
+        return
+    end
+    
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
     
     if vehicle == 0 then
@@ -20,16 +33,34 @@ RegisterCommand('modveh', function()
         return
     end
     
-    print("^2SUCCESS:^0 Access granted. Opening menu...")
+    -- Check if vehicle is an emergency vehicle (if restriction is enabled)
+    if Config.EmergencyVehiclesOnly and not Config.IsEmergencyVehicle(vehicle) then
+        lib.notify({
+            title = 'Vehicle Not Authorized',
+            description = 'Only emergency vehicles can be modified here',
+            type = 'error',
+            duration = 5000
+        })
+        return
+    end
+    
+    print("^2SUCCESS:^0 " .. zoneInfo.message .. ". Opening menu...")
     TriggerEvent('vehiclemods:client:openVehicleModMenu')
 end, false)
 
+-- Display help text function
+function DisplayHelpTextThisFrame(text, beep)
+    BeginTextCommandDisplayHelp("STRING")
+    AddTextComponentSubstringPlayerName(text)
+    EndTextCommandDisplayHelp(0, false, beep, -1)
+end
 -- Add a keybind to quickly open the menu without typing the command
 RegisterKeyMapping('modveh', 'Open Vehicle Modification Menu', 'keyboard', 'F7')
 
 -- Initialize variables
 ActiveCustomLiveries = {}
 
+-- Main menu event
 -- Main menu event
 RegisterNetEvent('vehiclemods:client:openVehicleModMenu')
 AddEventHandler('vehiclemods:client:openVehicleModMenu', function()
@@ -50,64 +81,85 @@ AddEventHandler('vehiclemods:client:openVehicleModMenu', function()
         }
     end
     
-    local options = {
-        {
+    local options = {}
+    
+    -- Only add options that are enabled in the config
+    if Config.EnabledModifications.Liveries then
+        table.insert(options, {
             title = 'Liveries',
             description = 'Select a vehicle livery.',
             onSelect = function()
                 OpenLiveryMenu()
             end
-        },
-        {
+        })
+    end
+    
+    if Config.EnabledModifications.CustomLiveries then
+        table.insert(options, {
             title = 'Custom Liveries',
             description = 'Apply custom YFT liveries.',
             onSelect = function()
                 OpenCustomLiveriesMenu()
             end
-        },
-        {
+        })
+    end
+    
+    if Config.EnabledModifications.Appearance then
+        table.insert(options, {
             title = 'Vehicle Appearance',
             description = 'Customize vehicle appearance.',
             onSelect = function()
                 OpenAppearanceMenu()
             end
-        },
-        {
+        })
+    end
+    
+    if Config.EnabledModifications.Performance then
+        table.insert(options, {
             title = 'Performance Mods',
             description = 'Install performance upgrades.',
             onSelect = function()
                 OpenPerformanceMenu()
             end
-        },
-        {
+        })
+    end
+    
+    if Config.EnabledModifications.Extras then
+        table.insert(options, {
             title = 'Extras',
             description = 'Enable or disable vehicle extras.',
             onSelect = function()
                 OpenExtrasMenu()
             end
-        },
-        {
+        })
+    end
+    
+    if Config.EnabledModifications.Doors then
+        table.insert(options, {
             title = 'Doors',
             description = 'Open or close individual doors.',
             onSelect = function()
                 OpenDoorsMenu()
             end
-        },
-        {
-            title = 'Save Configuration',
-            description = 'Save current vehicle setup.',
-            onSelect = function()
-                SaveVehicleConfig()
-            end
-        },
-        {
-            title = 'Close Menu',
-            description = 'Exit the vehicle modification menu',
-            onSelect = function()
-                lib.hideContext()
-            end
-        }
-    }
+        })
+    end
+    
+    -- These options should always be available
+    table.insert(options, {
+        title = 'Save Configuration',
+        description = 'Save current vehicle setup.',
+        onSelect = function()
+            SaveVehicleConfig()
+        end
+    })
+    
+    table.insert(options, {
+        title = 'Close Menu',
+        description = 'Exit the vehicle modification menu',
+        onSelect = function()
+            lib.hideContext()
+        end
+    })
 
     lib.registerContext({
         id = 'VehicleModMenu',
@@ -1785,3 +1837,125 @@ function GetVehicleManufacturer(modelHash)
     end
     
     return vehicleMake
+-- Create blips and markers for modification zones
+CreateThread(function()
+    if Config.ShowBlips then
+        for _, zone in ipairs(Config.ModificationZones) do
+            -- Create blip
+            local blip = AddBlipForCoord(zone.coords.x, zone.coords.y, zone.coords.z)
+            
+            -- Set blip properties based on zone type
+            if zone.type == "police" then
+                SetBlipSprite(blip, 60)  -- Police station sprite
+                SetBlipColour(blip, 38)  -- Blue color
+            elseif zone.type == "fire" then
+                SetBlipSprite(blip, 61)  -- Fire station sprite
+                SetBlipColour(blip, 1)   -- Red color
+            else
+                SetBlipSprite(blip, 446) -- Default wrench icon
+                SetBlipColour(blip, 0)   -- White color
+            end
+            
+            SetBlipDisplay(blip, 4)
+            SetBlipScale(blip, 0.8)
+            SetBlipAsShortRange(blip, true)
+            
+            BeginTextCommandSetBlipName("STRING")
+            AddTextComponentString(zone.name)
+            EndTextCommandSetBlipName(blip)
+        end
+    end
+end)
+
+-- Draw markers at modification zones when nearby
+CreateThread(function()
+    while Config.ShowMarkers do
+        local playerPed = PlayerPedId()
+        local playerCoords = GetEntityCoords(playerPed)
+        local nearZone = false
+        
+        for _, zone in ipairs(Config.ModificationZones) do
+            local distance = #(playerCoords - zone.coords)
+            
+            if distance < 50.0 then
+                nearZone = true
+                
+                -- Draw marker
+                local markerColor = (zone.type == "police") and {0, 0, 255, 100} or {255, 0, 0, 100}
+                DrawMarker(1, -- Marker type
+                    zone.coords.x, zone.coords.y, zone.coords.z - 1.0, -- Coordinates
+                    0.0, 0.0, 0.0, -- Direction
+                    0.0, 0.0, 0.0, -- Rotation
+                    zone.radius * 2.0, zone.radius * 2.0, 1.0, -- Scale
+                    markerColor[1], markerColor[2], markerColor[3], markerColor[4], -- RGBA color
+                    false, true, 2, false, nil, nil, false -- Options
+                )
+                
+                -- Draw hint when in a vehicle within the zone
+                if distance < zone.radius and IsPedInAnyVehicle(playerPed, false) and 
+                   GetPedInVehicleSeat(GetVehiclePedIsIn(playerPed, false), -1) == playerPed then
+                    
+                    -- Check if it's an emergency vehicle when restriction is on
+                    local veh = GetVehiclePedIsIn(playerPed, false)
+                    if not Config.EmergencyVehiclesOnly or Config.IsEmergencyVehicle(veh) then
+                        DisplayHelpTextThisFrame("Press ~INPUT_CONTEXT~ to modify this vehicle", false)
+                        if IsControlJustReleased(0, 51) then -- E key
+                            TriggerEvent('vehiclemods:client:openVehicleModMenu')
+                        end
+                    end
+                end
+            end
+        end
+        
+        -- Optimization: Check less frequently when far from any zone
+        Wait(nearZone and 0 or 1000)
+    end
+end)
+
+-- Notify players when entering/exiting modification zones
+CreateThread(function()
+    local inZone = false
+    local currentZoneName = nil
+    
+    while true do
+        local playerCoords = GetEntityCoords(PlayerPedId())
+        local foundZone = false
+        local zoneName = nil
+        
+        for _, zone in ipairs(Config.ModificationZones) do
+            local distance = #(playerCoords - zone.coords)
+            if distance <= zone.radius then
+                foundZone = true
+                zoneName = zone.name
+                break
+            end
+        end
+        
+        -- Notify when entering a new zone
+        if foundZone and (not inZone or zoneName ~= currentZoneName) then
+            local vehicleRestriction = Config.EmergencyVehiclesOnly and " emergency" or ""
+            lib.notify({
+                title = 'Vehicle Modification Zone',
+                description = 'Entered ' .. zoneName .. '. Press E to modify' .. vehicleRestriction .. ' vehicles.',
+                type = 'info',
+                duration = 5000
+            })
+            inZone = true
+            currentZoneName = zoneName
+            })
+        elseif not foundZone and inZone then
+            -- Notify when leaving zone
+            lib.notify({
+                title = 'Leaving Modification Zone',
+                description = 'Exited ' .. currentZoneName,
+                type = 'info',
+                duration = 3000
+            })
+            inZone = false
+            currentZoneName = nil
+        end
+        
+        -- Check every second to avoid performance impact
+        Wait(1000)
+    end
+end)
