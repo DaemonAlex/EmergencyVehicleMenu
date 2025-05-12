@@ -91,13 +91,16 @@ Config.EnabledModifications = {
 ```
 ## Directory Structure
 ```text
-resource_folder/
-        └── vehicle_lightbar_standard.yft
+## Handling Custom Liveries
 
-Vehicle Stream Directory Structure Validation
-The directory structure you've provided doesn't match what's expected by the script. Let me clarify how the script expects liveries to be organized:
+This script applies custom liveries by referencing `.yft` files that you have streamed using a separate resource.
 
-Current Structure in Your Code
+1.  **Stream Your Liveries:** Ensure your custom vehicle `.yft` files (and their corresponding `.ytd` texture dictionaries) are correctly added to a streaming resource in your server.
+2.  **Configure Paths:** Add entries to `Config.CustomLiveries` in `config.lua` or use the in-game 'Add New Livery' menu. Provide:
+    * A display name for the menu.
+    * The path to the `.yft` file *relative to the resource it's streamed in*, or simply the filename if it's in the root `stream` folder of its resource (e.g., `"police_livery_lspd.yft"`).
+3.  **Texture Dictionary Naming:** Crucially, the script expects the accompanying texture dictionary (`.ytd`) to follow a specific naming convention for it to be loaded correctly (see next point).
+
 text
 [vehiclename]
 ├──fxmanifest.lua
