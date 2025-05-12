@@ -131,9 +131,9 @@ CREATE TABLE IF NOT EXISTS `custom_liveries` (
 ```
 ### Adding Custom Liveries
 Place your YFT livery files in the appropriate folders within the stream directory:
-- For police vehicles: `stream/liveries/`
-- For ambulances: `stream/liveries/`
-- For other vehicles: `stream/liveries/`
+- For police vehicles: `stream`
+- For ambulances: `stream`
+- For other vehicles: `stream`
 
 ## Coming Soon
 - Vehicle-specific configuration profiles
