@@ -383,6 +383,7 @@ AddEventHandler('vehiclemods:client:setCustomLivery', function(netId, vehicleMod
         return
     end
     
+    -- Extract base name without "liveries/" prefix
     local baseName = string.match(liveryFile, "([^/]+)%.yft$")
     if not baseName then
         baseName = liveryFile:gsub(".yft", "")
