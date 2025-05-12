@@ -1639,7 +1639,6 @@ AddEventHandler('onClientResourceStart', function(resourceName)
     print("^2INFO:^0 Vehicle Modification System initialized successfully on client.")
 end)
 
--- Get manufacturer name from vehicle model
 function GetVehicleManufacturer(modelHash)
     local vehicleMake = "Unknown"
     
@@ -1649,20 +1648,7 @@ function GetVehicleManufacturer(modelHash)
     if makeName and makeName ~= "NULL" and makeName ~= "" then
         vehicleMake = makeName
     else
-        -- Try to extract from display name as fallback
-        local displayName = GetDisplayNameFromVehicleModel(modelHash)
-        if displayName then
-            -- Attempt to extract manufacturer from display name
-            -- This is just a basic approach and may not work for all vehicles
-            local parts = {}
-            for part in string.gmatch(displayName, "%S+") do
-                table.insert(parts, part)
-            end
-            
-            if #parts > 0 then
-                vehicleMake = parts[1]
-            end
-        end
+        -- ...fallback code...
     end
     
     return vehicleMake
