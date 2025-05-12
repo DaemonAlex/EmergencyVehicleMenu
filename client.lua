@@ -463,7 +463,7 @@ function OpenAddCustomLiveryMenu(vehicleModelName)
         description = 'Enter the name and YFT file for the new livery:',
         fields = {
             { label = 'Livery Name', name = 'name', type = 'text', required = true, placeholder = 'e.g. Police Livery 1' },
-            { label = 'YFT File Path', name = 'file', type = 'text', required = true, placeholder = 'liveries/' .. vehicleModelName .. '_livery1.yft' }
+            { label = 'YFT File Path', name = 'file', type = 'text', required = true, placeholder = vehicleModelName .. '_livery1.yft' }
         },
         onSubmit = function(data)
             if data.name and data.file then
