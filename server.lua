@@ -128,17 +128,13 @@ AddEventHandler('vehiclemods:server:saveModifications', function(vehicleModel, v
 end)
 
 -- Add a new custom livery
+-- Add a new custom livery
 RegisterNetEvent('vehiclemods:server:addCustomLivery')
 AddEventHandler('vehiclemods:server:addCustomLivery', function(vehicleModel, liveryName, liveryFile)
     local src = source
     
-    -- Validate that the livery file path points to the liveries folder
-    if not string.match(liveryFile, "^liveries/") then
-        -- If file doesn't start with liveries/, prefix it
-        liveryFile = "liveries/" .. liveryFile
-    end
-    
-    -- Ensure the file has .yft extension
+    -- Don't add "liveries/" prefix to the file path anymore
+    -- Just ensure it has .yft extension
     if not string.match(liveryFile, "%.yft$") then
         liveryFile = liveryFile .. ".yft"
     end
@@ -147,7 +143,7 @@ AddEventHandler('vehiclemods:server:addCustomLivery', function(vehicleModel, liv
     if not Config.CustomLiveries[vehicleModel:lower()] then
         Config.CustomLiveries[vehicleModel:lower()] = {}
     end
-        
+    
     -- Check if we've reached the limit of 20 liveries for this vehicle
     if #Config.CustomLiveries[vehicleModel:lower()] >= 20 then
         TriggerClientEvent('ox_lib:notify', src, {
@@ -179,6 +175,7 @@ AddEventHandler('vehiclemods:server:addCustomLivery', function(vehicleModel, liv
     -- Broadcast the updated config to all clients
     TriggerClientEvent('vehiclemods:client:updateCustomLiveries', -1, Config.CustomLiveries)
 end)
+4. Update setCustomLivery Event Handle
 
 -- Request vehicle configuration
 RegisterNetEvent('vehiclemods:server:requestVehicleConfig')
