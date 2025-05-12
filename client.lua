@@ -952,6 +952,131 @@ function OpenWindowTintMenu()
     lib.showContext('WindowTintMenu')
 end
 
+-- Function to load and apply saved vehicle configurations
+function LoadVehicleConfig(vehicle)
+    local vehicleModel = GetEntityModel(vehicle)
+    local vehicleModelName = GetDisplayNameFromVehicleModel(vehicleModel)
+    
+    -- Request saved configuration from server
+    TriggerServerEvent('vehiclemods:server:requestVehicleConfig', vehicleModelName)
+end
+
+-- Event to receive and apply saved vehicle configuration
+RegisterNetEvent('vehiclemods:client:applyVehicleConfig')
+AddEventHandler('vehiclemods:client:applyVehicleConfig', function(vehicleModelName, vehiclePropsJson)
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    
+    if vehicle == 0 or GetDisplayNameFromVehicleModel(GetEntityModel(vehicle)):lower() ~= vehicleModelName:lower() then
+        -- Not in the right vehicle
+        return
+    end
+    
+    -- Parse the JSON string back into a table
+    local vehicleProps = json.decode(vehiclePropsJson)
+    
+    if vehicleProps then
+        -- Apply the saved properties to the vehicle
+        ApplyVehicleProperties(vehicle, vehicleProps)
+        
+        lib.notify({
+            title = 'Configuration Loaded',
+            description = 'Vehicle configuration has been applied.',
+            type = 'success',
+            duration = 5000
+        })
+    else
+        lib.notify({
+            title = 'Error',
+            description = 'Failed to load vehicle configuration.',
+            type = 'error',
+            duration = 5000
+        })
+    end
+end)
+
+-- Function to apply vehicle properties
+function ApplyVehicleProperties(vehicle, props)
+    if props.color1 then
+        SetVehicleColours(vehicle, props.color1, props.color2 or 0)
+    end
+    
+    if props.pearlescentColor then
+        SetVehicleExtraColours(vehicle, props.pearlescentColor, props.wheelColor or 0)
+    end
+    
+    if props.wheels then
+        SetVehicleWheelType(vehicle, props.wheels)
+    end
+    
+    if props.windowTint then
+        SetVehicleWindowTint(vehicle, props.windowTint)
+    end
+    
+    -- Apply neon lights
+    if props.neonEnabled then
+        for i = 0, 3 do
+            SetVehicleNeonLightEnabled(vehicle, i, props.neonEnabled[i])
+        end
+    end
+    
+    if props.neonColor then
+        SetVehicleNeonLightsColour(vehicle, props.neonColor[1], props.neonColor[2], props.neonColor[3])
+    end
+    
+    -- Apply mods
+    for modType = 0, 49 do
+        local modValue = props['mod' .. modType]
+        if modValue ~= nil then
+            SetVehicleMod(vehicle, modType, modValue, false)
+        end
+    end
+    
+    -- Apply special mods
+    if props.modTurbo ~= nil then
+        ToggleVehicleMod(vehicle, 18, props.modTurbo)
+    end
+    
+    if props.modSmokeEnabled ~= nil then
+        ToggleVehicleMod(vehicle, 20, props.modSmokeEnabled)
+    end
+    
+    if props.modXenon ~= nil then
+        ToggleVehicleMod(vehicle, 22, props.modXenon)
+    end
+    
+    -- Apply extras
+    if props.extras then
+        for extraId, enabled in pairs(props.extras) do
+            local extraIndex = tonumber(extraId)
+            if extraIndex and DoesExtraExist(vehicle, extraIndex) then
+                SetVehicleExtra(vehicle, extraIndex, enabled and 0 or 1)
+            end
+        end
+    end
+    
+    -- Apply livery
+    if props.livery and props.livery ~= -1 then
+        SetVehicleLivery(vehicle, props.livery)
+    elseif props.modLivery and props.modLivery ~= -1 then
+        SetVehicleMod(vehicle, 48, props.modLivery, false)
+    end
+end
+
+-- When player enters vehicle, load saved config
+AddEventHandler('gameEventTriggered', function(name, args)
+    if name == 'CEventNetworkPlayerEnteredVehicle' then
+        -- args[1] is the player ID, args[2] is the vehicle
+        if args[1] == PlayerId() then
+            local vehicle = args[2]
+            if DoesEntityExist(vehicle) then
+                Citizen.SetTimeout(500, function() -- Small delay to ensure vehicle is fully loaded
+                    LoadVehicleConfig(vehicle)
+                end)
+            end
+        end
+    end
+end)
+
 -- Neon Menu
 function OpenNeonMenu()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
