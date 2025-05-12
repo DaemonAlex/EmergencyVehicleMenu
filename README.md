@@ -120,6 +120,8 @@ CREATE TABLE IF NOT EXISTS `vehicle_mods` (
     UNIQUE KEY `vehicle_model_unique` (`vehicle_model`)
 );
 ```
+The extras column holds a JSON object containing all saved modifications. 
+
 ### Adding Custom Liveries
 Place your YFT livery files in the appropriate folders within the stream directory:
 - For police vehicles: `stream`
