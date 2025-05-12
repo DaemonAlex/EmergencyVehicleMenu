@@ -62,7 +62,7 @@ Config.EnabledModifications = {
     CustomLiveries = true,      -- Custom YFT liveries
     Performance = true,         -- Engine, brakes, transmission, etc.
     Appearance = true,          -- Colors, wheels, window tint
-    Neon = true,                -- Neon lights and colors
+    Neon = false,                -- Neon lights and colors
     Extras = true,              -- Vehicle extras toggle
     Doors = true                -- Door controls
 }
