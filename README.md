@@ -89,10 +89,8 @@ Config.EnabledModifications = {
    Doors = true                -- Door controls
 }
 ```
-## Directory Structure
-```text
 ## Handling Custom Liveries
-
+```text
 This script applies custom liveries by referencing `.yft` files that you have streamed using a separate resource.
 
 1.  **Stream Your Liveries:** Ensure your custom vehicle `.yft` files (and their corresponding `.ytd` texture dictionaries) are correctly added to a streaming resource in your server.
