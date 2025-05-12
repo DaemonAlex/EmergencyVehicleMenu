@@ -1447,7 +1447,6 @@ function OpenWheelColorMenu()
     lib.showContext('WheelColorMenu')
 end
 
--- Function to save vehicle configuration
 function SaveVehicleConfig()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
     
@@ -1618,7 +1617,6 @@ function GetVehicleClassNameFromVehicleClass(vehicleClass)
     return vehicleClassName
 end
 
--- Update custom liveries from server
 RegisterNetEvent('vehiclemods:client:updateCustomLiveries')
 AddEventHandler('vehiclemods:client:updateCustomLiveries', function(liveries)
     Config.CustomLiveries = liveries
@@ -1627,13 +1625,11 @@ AddEventHandler('vehiclemods:client:updateCustomLiveries', function(liveries)
     end
 end)
 
--- Request custom liveries on resource start
 AddEventHandler('onClientResourceStart', function(resourceName)
     if GetCurrentResourceName() ~= resourceName then 
         return 
     end
     
-    -- Request all custom liveries from server
     TriggerServerEvent('vehiclemods:server:requestCustomLiveries')
     
     print("^2INFO:^0 Vehicle Modification System initialized successfully on client.")
@@ -1642,14 +1638,25 @@ end)
 function GetVehicleManufacturer(modelHash)
     local vehicleMake = "Unknown"
     
-    -- Try to get manufacturer name from native function
-    local makeName = GetLabelText(GetMakeNameFromVehicleModel(modelHash))
+    local makeHash = GetMakeNameFromVehicleModel(modelHash)
+    local makeName = GetLabelText(makeHash)
     
-    if makeName and makeName ~= "NULL" and makeName ~= "" then
+    if makeName and makeName ~= "" then
         vehicleMake = makeName
     else
-        -- ...fallback code...
+
+        local displayName = GetDisplayNameFromVehicleModel(modelHash)
+        if displayName then
+
+            local parts = {}
+            for part in string.gmatch(displayName, "%S+") do
+                table.insert(parts, part)
+            end
+            
+            if #parts > 0 then
+                vehicleMake = parts[1]
+            end
+        end
     end
     
     return vehicleMake
-end
