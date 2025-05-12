@@ -88,6 +88,7 @@ Config.EnabledModifications = {
    Extras = true,              -- Vehicle extras toggle
    Doors = true                -- Door controls
 }
+```
 ## Directory Structure
 ```text
 resource_folder/
@@ -107,6 +108,7 @@ resource_folder/
         └── modparts/
             ├── vehicle_lightbar_standard.yft
             └── ...
+```
 ## Database Tables
 ```sql
 CREATE TABLE IF NOT EXISTS `vehicle_mods` (
@@ -127,6 +129,7 @@ CREATE TABLE IF NOT EXISTS `custom_liveries` (
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`)
 );
+```
 ### Adding Custom Liveries
 Place your YFT livery files in the appropriate folders within the stream directory:
 - For police vehicles: `stream/police/liveries/`
