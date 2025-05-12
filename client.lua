@@ -40,7 +40,7 @@ AddEventHandler('vehiclemods:client:openVehicleModMenu', function()
     if vehicle ~= 0 then
         local vehicleModel = GetEntityModel(vehicle)
         local vehicleModelName = GetDisplayNameFromVehicleModel(vehicleModel)
-        local vehicleMake = GetMakeNameFromVehicleModel(vehicleModel)
+        local vehicleMake = GetVehicleManufacturer(vehicleModel)
         
         vehicleTitle = vehicleModelName .. " Modifications"
         vehicleInfo = {
@@ -1207,7 +1207,7 @@ function OpenColorsMenu()
                 OpenColorsMenu()
             end
         })
-    end
+    }
 
     lib.registerContext({
         id = 'primary_color',
@@ -1226,7 +1226,7 @@ function OpenColorsMenu()
     })
 
     lib.showContext('ColorsMenu')
-end
+}
 
 -- Pearlescent Color Menu
 function OpenPearlescentMenu()
@@ -1640,11 +1640,13 @@ AddEventHandler('onClientResourceStart', function(resourceName)
 end)
 
 -- Get manufacturer name from vehicle model
-function GetMakeNameFromVehicleModel(modelHash)
+function GetVehicleManufacturer(modelHash)
     local vehicleMake = "Unknown"
-    local makeName = GetMakeNameFromVehicleModel(modelHash)
     
-    if makeName and makeName ~= "" then
+    -- Try to get manufacturer name from native function
+    local makeName = GetLabelText(GetMakeNameFromVehicleModel(modelHash))
+    
+    if makeName and makeName ~= "NULL" and makeName ~= "" then
         vehicleMake = makeName
     else
         -- Try to extract from display name as fallback
