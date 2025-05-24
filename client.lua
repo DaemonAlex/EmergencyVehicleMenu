@@ -1,6 +1,3 @@
--- Vehicle Modification System - Standalone Edition
--- Client-side script
-
 if not Config then
     print("^1ERROR:^0 Config is not loaded! Check fxmanifest.lua.")
     return
@@ -48,19 +45,19 @@ RegisterCommand('modveh', function()
     TriggerEvent('vehiclemods:client:openVehicleModMenu')
 end, false)
 
--- Display help text function
+-- Display help text function (FIXED VERSION)
 function DisplayHelpTextThisFrame(text, beep)
-    BeginTextCommandDisplayHelp("STRING")
-    AddTextComponentSubstringPlayerName(text)
-    EndTextCommandDisplayHelp(0, false, beep, -1)
+    SetTextComponentFormat("STRING")
+    AddTextComponentString(text)
+    DisplayHelpTextFromStringLabel(0, 0, 1, -1)
 end
+
 -- Add a keybind to quickly open the menu without typing the command
 RegisterKeyMapping('modveh', 'Open Vehicle Modification Menu', 'keyboard', 'F7')
 
 -- Initialize variables
 ActiveCustomLiveries = {}
 
--- Main menu event
 -- Main menu event
 RegisterNetEvent('vehiclemods:client:openVehicleModMenu')
 AddEventHandler('vehiclemods:client:openVehicleModMenu', function()
@@ -1385,7 +1382,7 @@ function OpenColorsMenu()
                 OpenColorsMenu()
             end
         })
-    }
+    end
 
     lib.registerContext({
         id = 'primary_color',
@@ -1404,7 +1401,7 @@ function OpenColorsMenu()
     })
 
     lib.showContext('ColorsMenu')
-}
+end
 
 -- Pearlescent Color Menu
 function OpenPearlescentMenu()
@@ -1499,15 +1496,6 @@ function OpenWheelsMenu()
                 OpenWheelSelectionMenu(wheelOption.type)
             end
         })
-    end
-
-    -- Find current wheel type name
-    local currentWheelType = "Unknown"
-    for _, wheel in pairs(wheelTypeOptions) do
-        if wheel.type == wheelType then
-            currentWheelType = wheel.name
-            break
-        end
     end
 
     -- Add wheel color option
@@ -1625,6 +1613,7 @@ function OpenWheelColorMenu()
     lib.showContext('WheelColorMenu')
 end
 
+-- Save Vehicle Configuration
 function SaveVehicleConfig()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
     
@@ -1667,12 +1656,6 @@ function GetVehicleProperties(vehicle)
         end
         local neonColor = {GetVehicleNeonLightsColour(vehicle)}
         
-        -- Get mods
-        local mods = {}
-        for modType = 0, 49 do
-            mods[modType] = GetVehicleMod(vehicle, modType)
-        end
-        
         -- Get extras
         local extras = {}
         for extraId = 0, 20 do
@@ -1682,9 +1665,7 @@ function GetVehicleProperties(vehicle)
         end
         
         local tyreSmokeColor = {GetVehicleTyreSmokeColor(vehicle)}
-        
         local livery = GetVehicleLivery(vehicle)
-        
         local modLivery = GetVehicleMod(vehicle, 48)
         
         return {
@@ -1760,8 +1741,6 @@ end
 
 -- Helper function to get vehicle class name
 function GetVehicleClassNameFromVehicleClass(vehicleClass)
-    local vehicleClassName = "Unknown"
-    
     local classNames = {
         [0] = "Compact",
         [1] = "Sedan",
@@ -1788,31 +1767,10 @@ function GetVehicleClassNameFromVehicleClass(vehicleClass)
         [22] = "Open Wheel"
     }
     
-    if classNames[vehicleClass] then
-        vehicleClassName = classNames[vehicleClass]
-    end
-    
-    return vehicleClassName
+    return classNames[vehicleClass] or "Unknown"
 end
 
-RegisterNetEvent('vehiclemods:client:updateCustomLiveries')
-AddEventHandler('vehiclemods:client:updateCustomLiveries', function(liveries)
-    Config.CustomLiveries = liveries
-    if Config.Debug then
-        print("^2INFO:^0 Custom liveries updated from server")
-    end
-end)
-
-AddEventHandler('onClientResourceStart', function(resourceName)
-    if GetCurrentResourceName() ~= resourceName then 
-        return 
-    end
-    
-    TriggerServerEvent('vehiclemods:server:requestCustomLiveries')
-    
-    print("^2INFO:^0 Vehicle Modification System initialized successfully on client.")
-end)
-
+-- Get vehicle manufacturer helper function
 function GetVehicleManufacturer(modelHash)
     local vehicleMake = "Unknown"
     
@@ -1822,10 +1780,8 @@ function GetVehicleManufacturer(modelHash)
     if makeName and makeName ~= "" then
         vehicleMake = makeName
     else
-
         local displayName = GetDisplayNameFromVehicleModel(modelHash)
         if displayName then
-
             local parts = {}
             for part in string.gmatch(displayName, "%S+") do
                 table.insert(parts, part)
@@ -1838,6 +1794,27 @@ function GetVehicleManufacturer(modelHash)
     end
     
     return vehicleMake
+end
+
+-- Event handlers for custom liveries
+RegisterNetEvent('vehiclemods:client:updateCustomLiveries')
+AddEventHandler('vehiclemods:client:updateCustomLiveries', function(liveries)
+    Config.CustomLiveries = liveries
+    if Config.Debug then
+        print("^2INFO:^0 Custom liveries updated from server")
+    end
+end)
+
+-- Initialize client on resource start
+AddEventHandler('onClientResourceStart', function(resourceName)
+    if GetCurrentResourceName() ~= resourceName then 
+        return 
+    end
+    
+    TriggerServerEvent('vehiclemods:server:requestCustomLiveries')
+    print("^2INFO:^0 Vehicle Modification System initialized successfully on client.")
+end)
+
 -- Create blips and markers for modification zones
 CreateThread(function()
     if Config.ShowBlips then
@@ -1943,7 +1920,6 @@ CreateThread(function()
             })
             inZone = true
             currentZoneName = zoneName
-            })
         elseif not foundZone and inZone then
             -- Notify when leaving zone
             lib.notify({
