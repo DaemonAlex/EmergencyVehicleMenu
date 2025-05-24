@@ -7,27 +7,31 @@ local nearModificationZone = false
 local lastZoneCheck = 0
 local ZONE_CHECK_INTERVAL = 1000 -- Check every second instead of every frame
 local TEXTURE_LOAD_TIMEOUT = 300 -- Increased from 100 (3 seconds instead of 1)
-local loadedTextures = {} -- Track loaded textures for cleanup
-
--- Replace the existing custom livery event handler (around line 275) with this improved version:
-RegisterNetEvent('vehiclemods:client:setCustomLivery')
-AddEventHandler('vehiclemods:client:setCustomLivery', function(netId, vehicleModelName, liveryFile)
-    local vehicle = NetworkGetEntityFromNetworkId(netId)
+RegisterCommand('modveh', function()
+    local playerCoords = GetEntityCoords(PlayerPedId())
+    local inZone, zoneInfo = Config.IsInModificationZone(playerCoords)
     
-    if not vehicle or not DoesEntityExist(vehicle) then
-        if Config.Debug then
-            print("^1ERROR:^0 Vehicle not found for custom livery application")
-        end
+    if not inZone then
+        lib.notify({
+            title = 'Access Denied',
+            description = zoneInfo.message,
+            type = 'error',
+            duration = 5000
+        })
         return
     end
     
-    -- Validate inputs
-    if not vehicleModelName or not liveryFile then
-        print("^1ERROR:^0 Invalid parameters for custom livery")
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    
+    if vehicle == 0 then
+        lib.notify({
+            title = 'Error',
+            description = 'You must be in a vehicle to use this menu',
+            type = 'error',
+            duration = 5000
+        })
         return
     end
-    
-    -- Extract base name without "liveries/" prefix
     local baseName = string.match(liveryFile, "([^/]+)%.yft$")
     if not baseName then
         baseName = liveryFile:gsub(".yft", "")
@@ -677,56 +681,6 @@ AddEventHandler('vehiclemods:client:setCustomLivery', function(netId, vehicleMod
         baseName = liveryFile:gsub(".yft", "")
     end
     
-    local textureDict = vehicleModelName .. "_" .. baseName
-    
-    if not HasStreamedTextureDictLoaded(textureDict) then
-        RequestStreamedTextureDict(textureDict)
-        local timeout = 0
-        while not HasStreamedTextureDictLoaded(textureDict) and timeout < 100 do
-            Wait(10)
-            timeout = timeout + 1
-        end
-    end
-    
-    if HasStreamedTextureDictLoaded(textureDict) then
-        local vehicleEntityId = VehToNet(vehicle)
-        if not ActiveCustomLiveries then ActiveCustomLiveries = {} end
-        ActiveCustomLiveries[vehicleEntityId] = {
-            file = liveryFile,
-            dict = textureDict,
-            model = vehicleModelName
-        }
-        
-        -- Apply livery
-        local liveryModCount = GetNumVehicleMods(vehicle, 48)
-        if liveryModCount > 0 then
-            SetVehicleMod(vehicle, 48, 0, false)
-        else
-            local liveryCount = GetVehicleLiveryCount(vehicle)
-            if liveryCount > 0 then
-                SetVehicleLivery(vehicle, 1) -- Use first livery as base
-            end
-        end
-        
-        -- Update entity routing to refresh appearance
-        SetEntityRoutingBucket(vehicle, 100 + GetEntityRoutingBucket(vehicle))
-        Wait(50)
-        SetEntityRoutingBucket(vehicle, GetEntityRoutingBucket(vehicle) - 100)
-        
-        print("^2INFO:^0 Applied custom livery " .. liveryFile .. " to vehicle")
-    else
-        print("^1ERROR:^0 Failed to load texture dictionary for livery: " .. textureDict)
-    end
-end)
-
--- Removing custom liveries
-RegisterNetEvent('vehiclemods:client:clearCustomLivery')
-AddEventHandler('vehiclemods:client:clearCustomLivery', function(netId)
-    local vehicle = NetworkGetEntityFromNetworkId(netId)
-    
-    if not vehicle or not DoesEntityExist(vehicle) then
-        return
-    end
     
     local vehicleEntityId = VehToNet(vehicle)
     if ActiveCustomLiveries and ActiveCustomLiveries[vehicleEntityId] then
@@ -1894,60 +1848,6 @@ function OpenWheelColorMenu()
         })
     end
 
-    lib.registerContext({
-        id = 'WheelColorMenu',
-        title = 'Wheel Colors',
-        options = options,
-        menu = 'WheelsMenu',
-        close = false
-    })
-    lib.showContext('WheelColorMenu')
-end
-
--- Save Vehicle Configuration
-function SaveVehicleConfig()
-    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
-    
-    if vehicle == 0 then
-        lib.notify({
-            title = 'Error',
-            description = 'You need to be in a vehicle to save configuration',
-            type = 'error',
-            duration = 5000
-        })
-        return
-    end
-    
-    local vehicleProps = GetVehicleProperties(vehicle)
-    local vehicleModel = GetEntityModel(vehicle)
-    local vehicleModelName = GetDisplayNameFromVehicleModel(vehicleModel)
-    
-    -- Save to database via server
-    TriggerServerEvent('vehiclemods:server:saveModifications', vehicleModelName, json.encode(vehicleProps))
-    
-    lib.notify({
-        title = 'Configuration Saved',
-        description = 'Your vehicle configuration has been saved.',
-        type = 'success',
-        duration = 5000
-    })
-end
-
--- Function to get all vehicle properties
-function GetVehicleProperties(vehicle)
-    if DoesEntityExist(vehicle) then
-        -- Get the colors
-        local colorPrimary, colorSecondary = GetVehicleColours(vehicle)
-        local pearlescentColor, wheelColor = GetVehicleExtraColours(vehicle)
-        
-        -- Get neon status and color
-        local neonEnabled = {}
-        for i = 0, 3 do
-            neonEnabled[i] = IsVehicleNeonLightEnabled(vehicle, i)
-        end
-        local neonColor = {GetVehicleNeonLightsColour(vehicle)}
-        
-        -- Get extras
         local extras = {}
         for extraId = 0, 20 do
             if DoesExtraExist(vehicle, extraId) then
