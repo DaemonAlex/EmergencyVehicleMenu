@@ -3,6 +3,297 @@ if not Config then
     return
 end
 
+local nearModificationZone = false
+local lastZoneCheck = 0
+local ZONE_CHECK_INTERVAL = 1000 -- Check every second instead of every frame
+local TEXTURE_LOAD_TIMEOUT = 300 -- Increased from 100 (3 seconds instead of 1)
+local loadedTextures = {} -- Track loaded textures for cleanup
+
+-- Replace the existing custom livery event handler (around line 275) with this improved version:
+RegisterNetEvent('vehiclemods:client:setCustomLivery')
+AddEventHandler('vehiclemods:client:setCustomLivery', function(netId, vehicleModelName, liveryFile)
+    local vehicle = NetworkGetEntityFromNetworkId(netId)
+    
+    if not vehicle or not DoesEntityExist(vehicle) then
+        if Config.Debug then
+            print("^1ERROR:^0 Vehicle not found for custom livery application")
+        end
+        return
+    end
+    
+    -- Validate inputs
+    if not vehicleModelName or not liveryFile then
+        print("^1ERROR:^0 Invalid parameters for custom livery")
+        return
+    end
+    
+    -- Extract base name without "liveries/" prefix
+    local baseName = string.match(liveryFile, "([^/]+)%.yft$")
+    if not baseName then
+        baseName = liveryFile:gsub(".yft", "")
+    end
+    
+    local textureDict = vehicleModelName .. "_" .. baseName
+    
+    -- Check if already loaded
+    if not HasStreamedTextureDictLoaded(textureDict) then
+        RequestStreamedTextureDict(textureDict)
+        local timeout = 0
+        while not HasStreamedTextureDictLoaded(textureDict) and timeout < TEXTURE_LOAD_TIMEOUT do
+            Wait(10)
+            timeout = timeout + 1
+        end
+        
+        if not HasStreamedTextureDictLoaded(textureDict) then
+            print("^1ERROR:^0 Failed to load texture dictionary: " .. textureDict .. " (timeout)")
+            return
+        end
+    end
+    
+    if HasStreamedTextureDictLoaded(textureDict) then
+        local vehicleEntityId = VehToNet(vehicle)
+        if not ActiveCustomLiveries then ActiveCustomLiveries = {} end
+        
+        -- Clean up old texture if exists
+        if ActiveCustomLiveries[vehicleEntityId] and ActiveCustomLiveries[vehicleEntityId].dict then
+            local oldDict = ActiveCustomLiveries[vehicleEntityId].dict
+            if oldDict ~= textureDict and HasStreamedTextureDictLoaded(oldDict) then
+                SetStreamedTextureDictAsNoLongerNeeded(oldDict)
+                loadedTextures[oldDict] = nil
+            end
+        end
+        
+        ActiveCustomLiveries[vehicleEntityId] = {
+            file = liveryFile,
+            dict = textureDict,
+            model = vehicleModelName
+        }
+        
+        -- Track loaded texture
+        loadedTextures[textureDict] = GetGameTimer()
+        
+        -- Apply livery
+        local liveryModCount = GetNumVehicleMods(vehicle, 48)
+        if liveryModCount > 0 then
+            SetVehicleMod(vehicle, 48, 0, false)
+        else
+            local liveryCount = GetVehicleLiveryCount(vehicle)
+            if liveryCount > 0 then
+                SetVehicleLivery(vehicle, 1) -- Use first livery as base
+            end
+        end
+        
+        -- Update entity routing to refresh appearance
+        local currentBucket = GetEntityRoutingBucket(vehicle)
+        SetEntityRoutingBucket(vehicle, 100 + currentBucket)
+        Wait(50)
+        SetEntityRoutingBucket(vehicle, currentBucket)
+        
+        print("^2INFO:^0 Applied custom livery " .. liveryFile .. " to vehicle")
+    else
+        print("^1ERROR:^0 Failed to load texture dictionary for livery: " .. textureDict)
+    end
+end)
+
+-- Improved zone checking with performance optimization
+CreateThread(function()
+    while true do
+        local currentTime = GetGameTimer()
+        
+        if currentTime - lastZoneCheck >= ZONE_CHECK_INTERVAL then
+            local playerPed = PlayerPedId()
+            local playerCoords = GetEntityCoords(playerPed)
+            local foundZone = false
+            
+            for _, zone in ipairs(Config.ModificationZones) do
+                if zone and zone.coords and zone.radius then
+                    local distance = #(playerCoords - zone.coords)
+                    if distance < 50.0 then -- Only check zones within 50 units
+                        foundZone = true
+                        break
+                    end
+                end
+            end
+            
+            nearModificationZone = foundZone
+            lastZoneCheck = currentTime
+        end
+        
+        -- Dynamic wait based on proximity
+        Wait(nearModificationZone and 100 or 2000)
+    end
+end)
+
+-- Optimized marker drawing thread
+CreateThread(function()
+    while Config.ShowMarkers do
+        if nearModificationZone then
+            local playerPed = PlayerPedId()
+            local playerCoords = GetEntityCoords(playerPed)
+            
+            for _, zone in ipairs(Config.ModificationZones) do
+                if zone and zone.coords and zone.radius then
+                    local distance = #(playerCoords - zone.coords)
+                    
+                    if distance < 50.0 then
+                        -- Draw marker
+                        local markerColor = (zone.type == "police") and {0, 0, 255, 100} or {255, 0, 0, 100}
+                        DrawMarker(1, -- Marker type
+                            zone.coords.x, zone.coords.y, zone.coords.z - 1.0, -- Coordinates
+                            0.0, 0.0, 0.0, -- Direction
+                            0.0, 0.0, 0.0, -- Rotation
+                            zone.radius * 2.0, zone.radius * 2.0, 1.0, -- Scale
+                            markerColor[1], markerColor[2], markerColor[3], markerColor[4], -- RGBA color
+                            false, true, 2, false, nil, nil, false -- Options
+                        )
+                        
+                        -- Draw hint when in a vehicle within the zone
+                        if distance < zone.radius and IsPedInAnyVehicle(playerPed, false) and 
+                           GetPedInVehicleSeat(GetVehiclePedIsIn(playerPed, false), -1) == playerPed then
+                            
+                            -- Check if it's an emergency vehicle when restriction is on
+                            local veh = GetVehiclePedIsIn(playerPed, false)
+                            if not Config.EmergencyVehiclesOnly or Config.IsEmergencyVehicle(veh) then
+                                DisplayHelpTextThisFrame("Press ~INPUT_CONTEXT~ to modify this vehicle", false)
+                                if IsControlJustReleased(0, 51) then -- E key
+                                    TriggerEvent('vehiclemods:client:openVehicleModMenu')
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            Wait(0)
+        else
+            Wait(1000) -- Wait longer when not near any zone
+        end
+    end
+end)
+
+-- Texture cleanup thread
+CreateThread(function()
+    while true do
+        Wait(30000) -- Check every 30 seconds
+        
+        local currentTime = GetGameTimer()
+        for textureDict, loadTime in pairs(loadedTextures) do
+            -- Clean up textures that haven't been used for 5 minutes
+            if currentTime - loadTime > 300000 and HasStreamedTextureDictLoaded(textureDict) then
+                -- Check if texture is still in use
+                local inUse = false
+                for _, liveryInfo in pairs(ActiveCustomLiveries or {}) do
+                    if liveryInfo.dict == textureDict then
+                        inUse = true
+                        break
+                    end
+                end
+                
+                if not inUse then
+                    SetStreamedTextureDictAsNoLongerNeeded(textureDict)
+                    loadedTextures[textureDict] = nil
+                    if Config.Debug then
+                        print("^3INFO:^0 Cleaned up unused texture dictionary: " .. textureDict)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Add cleanup when player leaves vehicle
+AddEventHandler('gameEventTriggered', function(name, args)
+    if name == 'CEventNetworkPlayerLeftVehicle' then
+        if args[1] == PlayerId() then
+            local vehicle = args[2]
+            if DoesEntityExist(vehicle) then
+                local vehicleEntityId = VehToNet(vehicle)
+                if ActiveCustomLiveries and ActiveCustomLiveries[vehicleEntityId] then
+                    -- Don't immediately clean up, just mark the time
+                    local liveryInfo = ActiveCustomLiveries[vehicleEntityId]
+                    if liveryInfo.dict and loadedTextures[liveryInfo.dict] then
+                        loadedTextures[liveryInfo.dict] = GetGameTimer() - 240000 -- Age it by 4 minutes
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Add proper error handling to vehicle property functions
+local function SafeGetVehicleProperties(vehicle)
+    if not vehicle or not DoesEntityExist(vehicle) then
+        return nil
+    end
+    
+    local success, properties = pcall(GetVehicleProperties, vehicle)
+    if success then
+        return properties
+    else
+        print("^1ERROR:^0 Failed to get vehicle properties: " .. tostring(properties))
+        return nil
+    end
+end
+
+-- Replace the existing SaveVehicleConfig function with this safer version:
+function SaveVehicleConfig()
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    
+    if vehicle == 0 then
+        lib.notify({
+            title = 'Error',
+            description = 'You need to be in a vehicle to save configuration',
+            type = 'error',
+            duration = 5000
+        })
+        return
+    end
+    
+    local vehicleProps = SafeGetVehicleProperties(vehicle)
+    if not vehicleProps then
+        lib.notify({
+            title = 'Error',
+            description = 'Failed to read vehicle properties',
+            type = 'error',
+            duration = 5000
+        })
+        return
+    end
+    
+    local vehicleModel = GetEntityModel(vehicle)
+    local vehicleModelName = GetDisplayNameFromVehicleModel(vehicleModel)
+    
+    if not vehicleModelName or vehicleModelName == "" then
+        lib.notify({
+            title = 'Error',
+            description = 'Unable to identify vehicle model',
+            type = 'error',
+            duration = 5000
+        })
+        return
+    end
+    
+    -- Save to database via server
+    local success, jsonString = pcall(json.encode, vehicleProps)
+    if success then
+        TriggerServerEvent('vehiclemods:server:saveModifications', vehicleModelName, jsonString)
+        
+        lib.notify({
+            title = 'Configuration Saved',
+            description = 'Your vehicle configuration has been saved.',
+            type = 'success',
+            duration = 5000
+        })
+    else
+        lib.notify({
+            title = 'Error',
+            description = 'Failed to encode vehicle configuration',
+            type = 'error',
+            duration = 5000
+        })
+        print("^1ERROR:^0 JSON encoding failed: " .. tostring(jsonString))
+    end
+end
+
 -- Command to open the vehicle modification menu
 RegisterCommand('modveh', function()
     local playerCoords = GetEntityCoords(PlayerPedId())
