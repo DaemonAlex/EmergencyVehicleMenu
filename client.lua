@@ -1827,3 +1827,61 @@ CreateThread(function()
         end
     end
 end)
+
+RegisterNetEvent('vehiclemods:client:updateCustomLiveries')
+AddEventHandler('vehiclemods:client:updateCustomLiveries', function(customLiveries)
+    Config.CustomLiveries = customLiveries
+    
+    if Config.Debug then
+        print("^2INFO:^0 Updated custom liveries configuration")
+    end
+end)
+
+-- Request custom liveries when resource starts
+AddEventHandler('onClientResourceStart', function(resourceName)
+    if GetCurrentResourceName() ~= resourceName then return end
+    
+    TriggerServerEvent('vehiclemods:server:requestCustomLiveries')
+end)
+
+CreateThread(function()
+    while true do
+        Wait(60000) -- Check every minute
+        
+        if loadedTextures then
+            local currentTime = GetGameTimer()
+            local toRemove = {}
+            
+            for textureDict, loadTime in pairs(loadedTextures) do
+                -- Remove textures loaded more than 5 minutes ago and not currently in use
+                if currentTime - loadTime > 300000 then
+                    local inUse = false
+                    
+                    -- Check if any active custom livery is using this texture
+                    if ActiveCustomLiveries then
+                        for _, liveryInfo in pairs(ActiveCustomLiveries) do
+                            if liveryInfo.dict == textureDict then
+                                inUse = true
+                                break
+                            end
+                        end
+                    end
+                    
+                    if not inUse and HasStreamedTextureDictLoaded(textureDict) then
+                        SetStreamedTextureDictAsNoLongerNeeded(textureDict)
+                        table.insert(toRemove, textureDict)
+                        
+                        if Config.Debug then
+                            print("^3INFO:^0 Cleaned up unused texture: " .. textureDict)
+                        end
+                    end
+                end
+            end
+            
+            -- Remove from tracking
+            for _, textureDict in pairs(toRemove) do
+                loadedTextures[textureDict] = nil
+            end
+        end
+    end
+end)
