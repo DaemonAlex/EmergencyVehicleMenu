@@ -73,7 +73,6 @@ CreateThread(function()
 end)
 
 -- Apply a custom livery to a vehicle
-RegisterNetEvent('vehiclemods:server:applyCustomLivery')
 AddEventHandler('vehiclemods:server:applyCustomLivery', function(netId, vehicleModelName, liveryFile)
     local src = source
     local vehicle = NetworkGetEntityFromNetworkId(netId)
