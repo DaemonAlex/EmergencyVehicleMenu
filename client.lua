@@ -1,3 +1,22 @@
+AddEventHandler('onClientResourceStart', function(resourceName)
+    if GetCurrentResourceName() ~= resourceName then return end
+    
+    if not Config then
+        print("^1CRITICAL ERROR:^0 Config not loaded!")
+        return
+    end
+    
+    if not Config.ModificationZones or #Config.ModificationZones == 0 then
+        print("^3WARNING:^0 No modification zones configured!")
+    end
+    
+    if not Config.EnabledModifications then
+        print("^3WARNING:^0 No modifications enabled in config!")
+    end
+    
+    print("^2SUCCESS:^0 Vehicle Modification System client initialized")
+end)
+
 if not Config then
     print("^1ERROR:^0 Config is not loaded! Check fxmanifest.lua.")
     return
