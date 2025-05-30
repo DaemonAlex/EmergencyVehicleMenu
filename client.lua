@@ -1684,7 +1684,146 @@ function GetVehicleProperties(vehicle)
     }
 end
 
--- Function to load and apply saved vehicle configurations
 function LoadVehicleConfig(vehicle)
     local vehicleModel = GetEntityModel(vehicle)
-    local vehicleModelName = GetDisplayNameFrom
+    local vehicleModelName = GetDisplayNameFromVehicleModel(vehicleModel)
+    
+    if not vehicleModelName or vehicleModelName == "" then
+        return
+    end
+    
+    -- Request configuration from server
+    TriggerServerEvent('vehiclemods:server:requestVehicleConfig', vehicleModelName)
+end
+
+-- Event handler to apply vehicle configuration from server
+RegisterNetEvent('vehiclemods:client:applyVehicleConfig')
+AddEventHandler('vehiclemods:client:applyVehicleConfig', function(vehicleModel, configJson)
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    
+    if vehicle == 0 then
+        return
+    end
+    
+    local success, vehicleProps = pcall(json.decode, configJson)
+    if not success or not vehicleProps then
+        if Config.Debug then
+            print("^1ERROR:^0 Failed to decode vehicle configuration")
+        end
+        return
+    end
+    
+    ApplyVehicleProperties(vehicle, vehicleProps)
+    
+    lib.notify({
+        title = 'Configuration Loaded',
+        description = 'Vehicle configuration has been applied.',
+        type = 'success',
+        duration = 5000
+    })
+end)
+
+-- Function to apply vehicle properties
+function ApplyVehicleProperties(vehicle, props)
+    if not DoesEntityExist(vehicle) or not props then
+        return
+    end
+    
+    -- Apply colors
+    if props.color1 and props.color2 then
+        SetVehicleColours(vehicle, props.color1, props.color2)
+    end
+    
+    if props.pearlescentColor and props.wheelColor then
+        SetVehicleExtraColours(vehicle, props.pearlescentColor, props.wheelColor)
+    end
+    
+    -- Apply window tint
+    if props.windowTint then
+        SetVehicleWindowTint(vehicle, props.windowTint)
+    end
+    
+    -- Apply wheels
+    if props.wheels then
+        SetVehicleWheelType(vehicle, props.wheels)
+    end
+    
+    -- Apply mods
+    local modTypes = {
+        {prop = 'modEngine', id = 11},
+        {prop = 'modBrakes', id = 12},
+        {prop = 'modTransmission', id = 13},
+        {prop = 'modSuspension', id = 15},
+        {prop = 'modArmor', id = 16},
+        {prop = 'modFrontWheels', id = 23},
+        {prop = 'modLivery', id = 48}
+    }
+    
+    for _, mod in pairs(modTypes) do
+        if props[mod.prop] and props[mod.prop] ~= -1 then
+            SetVehicleMod(vehicle, mod.id, props[mod.prop], false)
+        end
+    end
+    
+    -- Apply toggle mods
+    if props.modTurbo ~= nil then
+        ToggleVehicleMod(vehicle, 18, props.modTurbo)
+    end
+    
+    if props.modXenon ~= nil then
+        ToggleVehicleMod(vehicle, 22, props.modXenon)
+    end
+    
+    -- Apply neon
+    if props.neonEnabled then
+        for i = 0, 3 do
+            if props.neonEnabled[i] ~= nil then
+                SetVehicleNeonLightEnabled(vehicle, i, props.neonEnabled[i])
+            end
+        end
+    end
+    
+    if props.neonColor and props.neonColor[1] and props.neonColor[2] and props.neonColor[3] then
+        SetVehicleNeonLightsColour(vehicle, props.neonColor[1], props.neonColor[2], props.neonColor[3])
+    end
+    
+    -- Apply extras
+    if props.extras then
+        for extraId, enabled in pairs(props.extras) do
+            if DoesExtraExist(vehicle, tonumber(extraId)) then
+                SetVehicleExtra(vehicle, tonumber(extraId), enabled and 0 or 1)
+            end
+        end
+    end
+    
+    -- Apply livery
+    if props.livery and props.livery > -1 then
+        SetVehicleLivery(vehicle, props.livery)
+    end
+end
+
+-- Auto-load configuration when entering a vehicle
+CreateThread(function()
+    local lastVehicle = 0
+    
+    while true do
+        Wait(1000)
+        
+        local playerPed = PlayerPedId()
+        local vehicle = GetVehiclePedIsIn(playerPed, false)
+        
+        if vehicle ~= 0 and vehicle ~= lastVehicle then
+            -- Check if we're in a modification zone and it's an emergency vehicle
+            local playerCoords = GetEntityCoords(playerPed)
+            local inZone = Config.IsInModificationZone(playerCoords)
+            
+            if inZone and (not Config.EmergencyVehiclesOnly or Config.IsEmergencyVehicle(vehicle)) then
+                LoadVehicleConfig(vehicle)
+            end
+            
+            lastVehicle = vehicle
+        elseif vehicle == 0 then
+            lastVehicle = 0
+        end
+    end
+end)
