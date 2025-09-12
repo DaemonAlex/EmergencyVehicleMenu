@@ -1,20 +1,42 @@
+-- Framework variables
+ESX = nil
+QBCore = nil
+
 AddEventHandler('onClientResourceStart', function(resourceName)
     if GetCurrentResourceName() ~= resourceName then return end
-    
+
     if not Config then
         print("^1CRITICAL ERROR:^0 Config not loaded!")
         return
     end
+
+    -- Initialize auto-configuration
+    Config.Initialize()
     
-    if not Config.ModificationZones or #Config.ModificationZones == 0 then
-        print("^3WARNING:^0 No modification zones configured!")
+    local framework = Config.Framework
+
+    if framework == 'esx' then
+        ESX = exports['es_extended']:getSharedObject()
+        print("^2INFO:^0 ESX initialized")
+    elseif framework == 'qbcore' then
+        if GetResourceState('qb-core') == 'started' then
+            QBCore = exports['qb-core']:GetCoreObject()
+        elseif GetResourceState('qbx_core') == 'started' then
+            QBCore = exports['qbx_core']:GetCoreObject()
+        end
+        print("^2INFO:^0 QBCore initialized")
+    elseif framework == 'qbox' then
+        -- QBox uses exports directly, no need to get core object
+        print("^2INFO:^0 QBox framework detected")
     end
+
+    print("^2SUCCESS:^0 Vehicle Modification System client initialized with " .. framework .. " framework")
     
-    if not Config.EnabledModifications then
-        print("^3WARNING:^0 No modifications enabled in config!")
+    if Config.Debug then
+        print("^2[AUTO-CONFIG]:^0 Client configuration completed")
+        print("^2[AUTO-CONFIG]:^0 Zones available: " .. #Config.ModificationZones)
+        print("^2[AUTO-CONFIG]:^0 Modifications enabled: " .. (Config.EnabledModifications and "Yes" or "No"))
     end
-    
-    print("^2SUCCESS:^0 Vehicle Modification System client initialized")
 end)
 
 if not Config then
@@ -23,9 +45,6 @@ if not Config then
 end
 
 -- Performance optimization variables
-local nearModificationZone = false
-local lastZoneCheck = 0
-local ZONE_CHECK_INTERVAL = 1000
 local TEXTURE_LOAD_TIMEOUT = 300
 local loadedTextures = {}
 
@@ -83,6 +102,89 @@ RegisterKeyMapping('modveh', 'Open Vehicle Modification Menu', 'keyboard', 'F7')
 
 -- Initialize variables
 ActiveCustomLiveries = {}
+
+-- Zone blips and markers
+local zoneBlips = {}
+
+-- Create blips for modification zones
+CreateThread(function()
+    if not Config.ShowBlips then return end
+
+    for i, zone in ipairs(Config.ModificationZones) do
+        local blip = AddBlipForCoord(zone.coords.x, zone.coords.y, zone.coords.z)
+
+        if zone.type == "police" then
+            SetBlipSprite(blip, 60) -- Police station
+            SetBlipColour(blip, 3) -- Light blue
+        elseif zone.type == "fire" then
+            SetBlipSprite(blip, 436) -- Fire station
+            SetBlipColour(blip, 1) -- Red
+        else
+            SetBlipSprite(blip, 446) -- Garage
+            SetBlipColour(blip, 5) -- Yellow
+        end
+
+        SetBlipScale(blip, 0.8)
+        SetBlipAsShortRange(blip, true)
+        BeginTextCommandSetBlipName("STRING")
+        AddTextComponentString(zone.name)
+        EndTextCommandSetBlipName(blip)
+
+        zoneBlips[i] = blip
+    end
+end)
+
+-- Zone proximity and marker thread
+CreateThread(function()
+    while true do
+        local sleep = 1000
+        local playerPed = PlayerPedId()
+        local playerCoords = GetEntityCoords(playerPed)
+        local nearZone = false
+
+        for _, zone in ipairs(Config.ModificationZones) do
+            local distance = #(playerCoords - zone.coords)
+
+            if distance <= zone.radius + 10.0 then
+                sleep = 100
+                nearZone = true
+
+                -- Show marker if enabled
+                if Config.ShowMarkers then
+                    local markerColor = zone.type == "police" and {0, 100, 255, 100} or {255, 50, 50, 100}
+                    DrawMarker(1, zone.coords.x, zone.coords.y, zone.coords.z - 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                              zone.radius * 2.0, zone.radius * 2.0, 1.0,
+                              markerColor[1], markerColor[2], markerColor[3], markerColor[4],
+                              false, true, 2, false, nil, nil, false)
+                end
+
+                if distance <= zone.radius then
+                    -- Player is in zone
+                    local vehicle = GetVehiclePedIsIn(playerPed, false)
+                    if vehicle ~= 0 then
+                        DisplayHelpTextThisFrame("Press ~INPUT_CONTEXT~ to open Vehicle Modifications or use /modveh")
+
+                        if IsControlJustPressed(0, 38) then -- E key
+                            TriggerEvent('vehiclemods:client:openVehicleModMenu')
+                        end
+                    else
+                        DisplayHelpTextThisFrame("Enter a vehicle to access modifications")
+                    end
+                else
+                    -- Player is approaching zone
+                    DisplayHelpTextThisFrame("Vehicle Modification Zone nearby")
+                end
+                break
+            end
+        end
+
+        if not nearZone then
+            sleep = 2000 -- Sleep longer when not near any zones
+        end
+
+        Wait(sleep)
+    end
+end)
 
 -- Main menu event
 RegisterNetEvent('vehiclemods:client:openVehicleModMenu')
@@ -169,13 +271,29 @@ AddEventHandler('vehiclemods:client:openVehicleModMenu', function()
     
     -- These options should always be available
     table.insert(options, {
+        title = 'Emergency Repair',
+        description = 'Partial repair for disabled vehicles (slow movement only)',
+        onSelect = function()
+            EmergencyRepairVehicle()
+        end
+    })
+
+    table.insert(options, {
+        title = 'Full Repair',
+        description = 'Complete vehicle repair and performance restoration',
+        onSelect = function()
+            FullRepairVehicle()
+        end
+    })
+
+    table.insert(options, {
         title = 'Save Configuration',
         description = 'Save current vehicle setup.',
         onSelect = function()
             SaveVehicleConfig()
         end
     })
-    
+
     table.insert(options, {
         title = 'Close Menu',
         description = 'Exit the vehicle modification menu',
@@ -1904,3 +2022,178 @@ CreateThread(function()
         end
     end
 end)
+
+-- Emergency Repair System
+function EmergencyRepairVehicle()
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+
+    if vehicle == 0 then
+        lib.notify({
+            title = 'Error',
+            description = 'You must be in a vehicle to use emergency repair',
+            type = 'error',
+            duration = 5000
+        })
+        return
+    end
+
+    -- Check if vehicle is significantly damaged
+    local engineHealth = GetVehicleEngineHealth(vehicle)
+    local bodyHealth = GetVehicleBodyHealth(vehicle)
+
+    if engineHealth > 500 and bodyHealth > 500 then
+        lib.notify({
+            title = 'Emergency Repair',
+            description = 'Vehicle is not damaged enough to require emergency repair',
+            type = 'info',
+            duration = 5000
+        })
+        return
+    end
+
+    -- Show confirmation dialog
+    local alert = lib.alertDialog({
+        header = 'Emergency Repair',
+        content = 'This will partially repair your vehicle for emergency transport only. The vehicle will be slow and require full repair at a station. Continue?',
+        centered = true,
+        cancel = true
+    })
+
+    if alert == 'confirm' then
+        -- Apply emergency repair
+        lib.notify({
+            title = 'Emergency Repair',
+            description = 'Applying emergency repairs... Please wait.',
+            type = 'info',
+            duration = 3000
+        })
+
+        -- Repair animation/progress bar
+        if lib.progressBar({
+            duration = 10000,
+            label = 'Applying emergency repairs...',
+            useWhileDead = false,
+            canCancel = true,
+            disable = {
+                car = true,
+                move = true,
+                combat = true
+            },
+            anim = {
+                dict = 'mini@repair',
+                clip = 'fixing_a_ped'
+            }
+        }) then
+            -- Set vehicle to emergency repair state
+            SetVehicleEngineHealth(vehicle, 400.0) -- Enough to run but poorly
+            SetVehicleBodyHealth(vehicle, 600.0) -- Minimal body repair
+            SetVehiclePetrolTankHealth(vehicle, 750.0) -- Fix fuel tank
+
+            -- Reduce performance significantly
+            SetVehicleEnginePowerMultiplier(vehicle, 0.3) -- 30% power
+            SetVehicleEngineTorqueMultiplier(vehicle, 0.4) -- 40% torque
+
+            -- Set a flag to track emergency repair state
+            SetVehicleNumberPlateText(vehicle, "EMRG" .. math.random(100, 999))
+
+            lib.notify({
+                title = 'Emergency Repair Complete',
+                description = 'Vehicle repaired for emergency transport. Seek full repair immediately.',
+                type = 'success',
+                duration = 8000
+            })
+
+            -- Add a reminder notification after 30 seconds
+            SetTimeout(30000, function()
+                if DoesEntityExist(vehicle) then
+                    lib.notify({
+                        title = 'Reminder',
+                        description = 'Your vehicle needs full repair at a station',
+                        type = 'warning',
+                        duration = 5000
+                    })
+                end
+            end)
+        else
+            lib.notify({
+                title = 'Emergency Repair',
+                description = 'Repair cancelled',
+                type = 'error',
+                duration = 3000
+            })
+        end
+    end
+end
+
+-- Full Repair Function (for use at stations)
+function FullRepairVehicle()
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+
+    if vehicle == 0 then
+        lib.notify({
+            title = 'Error',
+            description = 'You must be in a vehicle to repair it',
+            type = 'error',
+            duration = 5000
+        })
+        return
+    end
+
+    -- Show confirmation dialog
+    local alert = lib.alertDialog({
+        header = 'Full Vehicle Repair',
+        content = 'This will fully repair your vehicle and restore normal performance. Continue?',
+        centered = true,
+        cancel = true
+    })
+
+    if alert == 'confirm' then
+        lib.notify({
+            title = 'Full Repair',
+            description = 'Performing full vehicle repair...',
+            type = 'info',
+            duration = 3000
+        })
+
+        -- Full repair animation/progress bar
+        if lib.progressBar({
+            duration = 15000,
+            label = 'Performing full repair...',
+            useWhileDead = false,
+            canCancel = true,
+            disable = {
+                car = true,
+                move = true,
+                combat = true
+            },
+            anim = {
+                dict = 'mini@repair',
+                clip = 'fixing_a_ped'
+            }
+        }) then
+            -- Fully repair the vehicle
+            SetVehicleFixed(vehicle)
+            SetVehicleDeformationFixed(vehicle)
+            SetVehicleUndriveable(vehicle, false)
+            SetVehicleEngineOn(vehicle, true, true, false)
+
+            -- Restore normal performance
+            SetVehicleEnginePowerMultiplier(vehicle, 1.0)
+            SetVehicleEngineTorqueMultiplier(vehicle, 1.0)
+
+            lib.notify({
+                title = 'Full Repair Complete',
+                description = 'Vehicle has been fully repaired and is ready for service',
+                type = 'success',
+                duration = 5000
+            })
+        else
+            lib.notify({
+                title = 'Full Repair',
+                description = 'Repair cancelled',
+                type = 'error',
+                duration = 3000
+            })
+        end
+    end
+end

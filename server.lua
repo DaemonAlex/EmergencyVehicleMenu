@@ -1,10 +1,60 @@
--- Vehicle Modification System - Standalone Edition
+-- Vehicle Modification System - Multi-Framework Edition
 -- Server-side script
 
 if not Config then
     print("^1ERROR:^0 Config is not loaded! Check fxmanifest.lua.")
     return
 end
+
+-- Framework variables
+local ESX = nil
+local QBCore = nil
+local currentFramework = nil
+local frameworkObject = nil
+
+-- Initialize framework
+CreateThread(function()
+    Wait(1000) -- Wait for resources to load
+    
+    -- Initialize auto-configuration
+    Config.Initialize()
+    
+    currentFramework = Config.Framework
+    
+    if currentFramework == 'esx' then
+        ESX = exports['es_extended']:getSharedObject()
+        frameworkObject = ESX
+        print("^2INFO:^0 ESX framework initialized on server")
+    elseif currentFramework == 'qbcore' then
+        if GetResourceState('qb-core') == 'started' then
+            QBCore = exports['qb-core']:GetCoreObject()
+        elseif GetResourceState('qbx_core') == 'started' then
+            QBCore = exports['qbx_core']:GetCoreObject()
+        end
+        frameworkObject = QBCore
+        print("^2INFO:^0 QBCore framework initialized on server")
+    elseif currentFramework == 'qbox' then
+        -- QBox uses exports directly
+        frameworkObject = exports.qbox
+        print("^2INFO:^0 QBox framework initialized on server")
+    else
+        print("^2INFO:^0 Running in standalone mode")
+    end
+    
+    -- Initialize job cache cleanup if caching is enabled
+    if Config.CacheJobInfo then
+        CreateThread(function()
+            while true do
+                Wait(Config.JobCacheTimeout or 300000) -- Default 5 minutes
+                Config.CleanJobCache()
+            end
+        end)
+        
+        if Config.Debug then
+            print("^2[AUTO-CONFIG]:^0 Job cache cleanup initialized")
+        end
+    end
+end)
 
 -- Initialize database
 local ox_mysql = exports['oxmysql']
@@ -174,7 +224,6 @@ AddEventHandler('vehiclemods:server:addCustomLivery', function(vehicleModel, liv
     -- Broadcast the updated config to all clients
     TriggerClientEvent('vehiclemods:client:updateCustomLiveries', -1, Config.CustomLiveries)
 end)
-4. Update setCustomLivery Event Handle
 
 -- Request vehicle configuration
 RegisterNetEvent('vehiclemods:server:requestVehicleConfig')
@@ -283,100 +332,6 @@ AddEventHandler('onResourceStart', function(resourceName)
     end)
 end)
 
-RegisterNetEvent('vehiclemods:server:applyCustomLivery')
-AddEventHandler('vehiclemods:server:applyCustomLivery', function(netId, vehicleModelName, liveryFile)
-    local src = source
-    
-    -- Validate inputs
-    if not netId or not vehicleModelName or not liveryFile then
-        TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Error',
-            description = 'Invalid livery parameters.',
-            type = 'error',
-            duration = 5000
-        })
-        return
-    end
-    
-    local vehicle = NetworkGetEntityFromNetworkId(netId)
-    
-    if not vehicle or vehicle == 0 then
-        TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Error',
-            description = 'Vehicle not found.',
-            type = 'error',
-            duration = 5000
-        })
-        return
-    end
-    
-    -- Additional validation: check if the livery exists in config
-    local vehicleModelLower = vehicleModelName:lower()
-    if not Config.CustomLiveries[vehicleModelLower] then
-        TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Error',
-            description = 'No custom liveries available for this vehicle.',
-            type = 'error',
-            duration = 5000
-        })
-        return
-    end
-    
-    local liveryExists = false
-    for _, livery in ipairs(Config.CustomLiveries[vehicleModelLower]) do
-        if livery.file == liveryFile then
-            liveryExists = true
-            break
-        end
-    end
-    
-    if not liveryExists then
-        TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Error',
-            description = 'Livery file not found in configuration.',
-            type = 'error',
-            duration = 5000
-        })
-        return
-    end
-    
-    TriggerClientEvent('vehiclemods:client:setCustomLivery', -1, netId, vehicleModelName, liveryFile)
-    
-    if Config.Debug then
-        print("^2DEBUG:^0 Applied custom livery " .. vehicleModelName .. "/" .. liveryFile .. " to vehicle with netId " .. netId)
-    end
-end)
+-- Duplicate event handler removed - functionality already exists above
 
--- Zone proximity thread
-CreateThread(function()
-    while true do
-        local sleep = 1000
-        local playerPed = PlayerPedId()
-        local playerCoords = GetEntityCoords(playerPed)
-        
-        for _, zone in ipairs(Config.ModificationZones) do
-            local distance = #(playerCoords - zone.coords)
-            
-            if distance <= zone.radius + 10.0 then
-                sleep = 100
-                
-                if distance <= zone.radius then
-                    -- Player is in zone
-                    if GetVehiclePedIsIn(playerPed, false) ~= 0 then
-                        DisplayHelpTextThisFrame("Press ~INPUT_CONTEXT~ to open Vehicle Modifications or use /modveh")
-                        
-                        if IsControlJustPressed(0, 38) then -- E key
-                            TriggerEvent('vehiclemods:client:openVehicleModMenu')
-                        end
-                    end
-                else
-                    -- Player is approaching zone
-                    DisplayHelpTextThisFrame("Vehicle Modification Zone nearby")
-                end
-                break
-            end
-        end
-        
-        Wait(sleep)
-    end
-end)
+

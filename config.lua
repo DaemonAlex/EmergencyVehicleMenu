@@ -1,71 +1,266 @@
 Config = {}
 
+-- Auto-Configuration Settings
 Config.Debug = true
--- Location-based authorization for vehicle modifications. Please edit to your liking. Only "emergency" vehicles can be modded at the specified locations. 
--- I DID THIS TO SIMPLIFIY THE SCRIPT. I was having issues trying to write the code to make it job based for multiple frameworks. I retry this in the future when I have more time.
--- Feel free to make a pull request if you want that part to work.  
--- Locations should be in a locked location restricted to PD, Fire or other specified job types. 
-Config.ModificationZones = {
-    -- Police Department Locations (add additional locations useing the same format)
-    {
-        name = "Mission Row Police Department Garage",
-        coords = vector3(454.6, -1017.4, 28.4),
-        radius = 30.0,
-        type = "police"  -- Just for blip and marker colors
-    },
-    {
-        name = "Sandy Shores Sheriff's Office Garage",
-        coords = vector3(1853.7, 3675.9, 33.7),
-        radius = 25.0,
-        type = "police"
-    },
-    {
-        name = "Paleto Bay Sheriff's Office Garage",
-        coords = vector3(-448.5, 6012.6, 31.7),
-        radius = 25.0,
-        type = "police"
-    },
+Config.AutoConfigure = true -- Automatically configure everything
+Config.AutoDetectFramework = true -- Automatically detect framework if available
+Config.AutoDetectZones = true -- Automatically detect modification zones
+Config.AutoDetectVehicles = true -- Automatically detect emergency vehicles
+
+-- Manual Override Settings (set to false to disable auto-config for that feature)
+Config.ManualFramework = false -- Set to true to use manual framework setting below
+Config.ManualZones = false -- Set to true to use manual zones below
+Config.ManualVehicleDetection = false -- Set to true to use manual vehicle list below
+Config.ManualJobSystem = false -- Set to true to disable auto job detection
+
+-- Advanced Job-Based Access Control
+Config.EnableJobRestrictions = true -- Enable job-based location restrictions
+Config.EnableGradeRestrictions = true -- Enable grade/level restrictions
+Config.AutoDetectJobTables = true -- Auto-detect framework job database tables
+Config.CacheJobInfo = true -- Cache job information for performance
+Config.JobCacheTimeout = 300000 -- 5 minutes in milliseconds
+
+-- Framework Detection and Compatibility (auto-configured unless ManualFramework = true)
+Config.Framework = 'standalone' -- Only used if ManualFramework = true
+
+-- Auto-configured framework-specific settings
+Config.FrameworkSettings = {}
+
+-- Auto-configuration function for framework settings
+function Config.AutoConfigureFramework()
+    local detectedFramework = Config.DetectFramework()
     
-    -- Fire Department Locations (add additional locations useing the same format)
-    {
-        name = "Los Santos Fire Station Garage",
-        coords = vector3(1204.3, -1473.2, 34.9),
-        radius = 25.0,
-        type = "fire"
-    },
-    {
-        name = "Davis Fire Station Garage",
-        coords = vector3(208.3, -1660.1, 29.8),
-        radius = 25.0,
-        type = "fire"
-    },
-    {
-        name = "Paleto Bay Fire Station Garage",
-        coords = vector3(-379.5, 6118.6, 31.5),
-        radius = 25.0,
-        type = "fire"
+    -- Default settings template
+    local defaultSettings = {
+        esx = {
+            jobRestriction = true,
+            allowedJobs = {'police', 'ambulance', 'fire'},
+            useJobGrades = true,
+            minGrade = 0,
+            resourceName = 'es_extended'
+        },
+        qbcore = {
+            jobRestriction = true,
+            allowedJobs = {'police', 'ambulance', 'fire'},
+            useJobGrades = true,
+            minGrade = 0,
+            resourceName = GetResourceState('qb-core') == 'started' and 'qb-core' or 'qbx_core'
+        },
+        qbox = {
+            jobRestriction = true,
+            allowedJobs = {'police', 'ambulance', 'fire'},
+            useJobGrades = true,
+            minGrade = 0,
+            resourceName = 'qbox-core'
+        },
+        standalone = {
+            jobRestriction = false,
+            locationOnly = true
+        }
     }
-}
+    
+    -- Auto-configure based on detected framework (unless manual override)
+    if not Config.ManualFramework then
+        Config.FrameworkSettings = defaultSettings
+        Config.Framework = detectedFramework
+        if Config.Debug then
+            print("^2[AUTO-CONFIG]:^0 Framework auto-configured as: " .. detectedFramework)
+        end
+    else
+        Config.FrameworkSettings = defaultSettings
+        if Config.Debug then
+            print("^2[AUTO-CONFIG]:^0 Using manual framework configuration: " .. Config.Framework)
+        end
+    end
+    
+    -- Auto-configure job system
+    if Config.EnableJobRestrictions and not Config.ManualJobSystem then
+        Config.AutoConfigureJobSystem()
+    end
+end
 
--- Whether to enable blips on the map for modification zones
-Config.ShowBlips = true
+-- Auto-configure job system based on framework
+function Config.AutoConfigureJobSystem()
+    local framework = Config.Framework
+    
+    -- Framework-specific database table detection
+    Config.JobTables = {
+        esx = {
+            jobs = "jobs",
+            job_grades = "job_grades",
+            users = "users",
+            userJobField = "job",
+            userGradeField = "job_grade",
+            identifierField = "identifier"
+        },
+        qbcore = {
+            jobs = "jobs",
+            players = "players", 
+            userJobField = "job",
+            userGradeField = "grade",
+            identifierField = "citizenid",
+            jobDataColumn = "job" -- JSON column in qbcore
+        },
+        qbox = {
+            jobs = "jobs",
+            players = "players",
+            userJobField = "job", 
+            userGradeField = "grade",
+            identifierField = "citizenid"
+        }
+    }
+    
+    -- Auto-detect job names based on framework
+    Config.JobMappings = {
+        police = {"police", "lspd", "bcso", "sahp", "sheriff"},
+        fire = {"fire", "lsfd", "firefighter"},
+        ambulance = {"ambulance", "ems", "medical"}
+    }
+    
+    if Config.Debug then
+        print("^2[AUTO-CONFIG]:^0 Job system configured for " .. framework)
+    end
+end
 
--- Whether to show markers on the ground at modification zones
-Config.ShowMarkers = true
+-- Auto-configured modification zones
+Config.ModificationZones = {}
 
--- Whether to restrict to emergency vehicles only
-Config.EmergencyVehiclesOnly = true
+-- Auto-configuration function for modification zones
+function Config.AutoConfigureZones()
+    -- Default zones with job restrictions (auto-configured based on framework)
+    local defaultZones = {
+        -- Police Stations (Police job, grade 4+)
+        {
+            name = "Mission Row Police Department",
+            coords = vector3(454.6, -1017.4, 28.4),
+            radius = 30.0,
+            type = "police",
+            requiredJob = "police",
+            minGrade = 4,
+            jobLabel = "Police Officer"
+        },
+        {
+            name = "Davis Sheriff Station", 
+            coords = vector3(397.4, -1607.7, 29.3),
+            radius = 25.0,
+            type = "police",
+            requiredJob = "police",
+            minGrade = 4,
+            jobLabel = "Police Officer"
+        },
+        {
+            name = "Sandy Shores Sheriff Office",
+            coords = vector3(1853.7, 3675.9, 33.7),
+            radius = 25.0,
+            type = "police",
+            requiredJob = "police",
+            minGrade = 4,
+            jobLabel = "Police Officer"
+        },
+        {
+            name = "Paleto Bay Sheriff Office",
+            coords = vector3(-448.5, 6012.6, 31.7),
+            radius = 25.0,
+            type = "police",
+            requiredJob = "police",
+            minGrade = 4,
+            jobLabel = "Police Officer"
+        },
+        {
+            name = "Vespucci Police Station",
+            coords = vector3(-1096.2, -836.3, 37.7),
+            radius = 25.0,
+            type = "police",
+            requiredJob = "police",
+            minGrade = 4,
+            jobLabel = "Police Officer"
+        },
+        -- Fire Stations (Fire job, grade 4+)
+        {
+            name = "Los Santos Fire Station 1",
+            coords = vector3(1204.3, -1473.2, 34.9),
+            radius = 25.0,
+            type = "fire",
+            requiredJob = "fire",
+            minGrade = 4,
+            jobLabel = "Firefighter"
+        },
+        {
+            name = "Davis Fire Station",
+            coords = vector3(208.3, -1660.1, 29.8),
+            radius = 25.0,
+            type = "fire",
+            requiredJob = "fire",
+            minGrade = 4,
+            jobLabel = "Firefighter"
+        },
+        {
+            name = "Paleto Bay Fire Station",
+            coords = vector3(-379.5, 6118.6, 31.5),
+            radius = 25.0,
+            type = "fire",
+            requiredJob = "fire",
+            minGrade = 4,
+            jobLabel = "Firefighter"
+        },
+        {
+            name = "Sandy Shores Fire Station",
+            coords = vector3(1695.2, 3584.5, 35.6),
+            radius = 25.0,
+            type = "fire",
+            requiredJob = "fire",
+            minGrade = 4,
+            jobLabel = "Firefighter"
+        },
+        -- Hospitals (Ambulance job, grade 4+)
+        {
+            name = "Pillbox Hill Medical Center",
+            coords = vector3(298.7, -584.6, 43.3),
+            radius = 30.0,
+            type = "medical",
+            requiredJob = "ambulance",
+            minGrade = 4,
+            jobLabel = "EMS Personnel"
+        },
+        {
+            name = "Sandy Shores Medical Center",
+            coords = vector3(1839.6, 3672.9, 34.3),
+            radius = 25.0,
+            type = "medical",
+            requiredJob = "ambulance",
+            minGrade = 4,
+            jobLabel = "EMS Personnel"
+        }
+    }
+    
+    if Config.AutoDetectZones and not Config.ManualZones then
+        Config.ModificationZones = defaultZones
+        if Config.Debug then
+            print("^2[AUTO-CONFIG]:^0 Configured " .. #defaultZones .. " modification zones")
+        end
+    elseif Config.ManualZones then
+        if Config.Debug then
+            print("^2[AUTO-CONFIG]:^0 Using manual zone configuration")
+        end
+    end
+end
 
--- Available modification types - all enabled by default
+
+-- Available modification types - auto-configured but can be manually overridden
 Config.EnabledModifications = {
     Liveries = true,            -- Standard vehicle liveries
-    CustomLiveries = true,      -- Custom YFT liveries
+    CustomLiveries = true,      -- Custom YFT liveries  
     Performance = true,         -- Engine, brakes, transmission, etc.
     Appearance = true,          -- Colors, wheels, window tint
-    Neon = false,                -- Neon lights and colors
+    Neon = false,               -- Neon lights and colors (disabled by default for performance)
     Extras = true,              -- Vehicle extras toggle
     Doors = true                -- Door controls
 }
+
+-- Other auto-configured settings (can be manually overridden)
+Config.ShowBlips = true         -- Show modification zone blips on map
+Config.ShowMarkers = true       -- Show ground markers at zones  
+Config.EmergencyVehiclesOnly = true  -- Only allow emergency vehicles
 
 -- Custom liveries configuration - add your vehicle liveries here
 Config.CustomLiveries = {
@@ -81,24 +276,359 @@ Config.CustomLiveries = {
     -- Add more vehicles and liveries as needed
 }
 
--- Check if player is in a modification zone
-function Config.IsInModificationZone(playerCoords)
-    for _, zone in ipairs(Config.ModificationZones) do
-        local distance = #(playerCoords - zone.coords)
-        if distance <= zone.radius then
-            return true, {
-                allowed = true, 
-                message = "Access granted at " .. zone.name, 
-                zone = zone
+-- Manual Zone Configuration (only used if ManualZones = true)
+Config.ManualModificationZones = {
+    -- Add your custom zones here if you want manual control
+    -- Example:
+    -- {
+    --     name = "Custom Police Station",
+    --     coords = vector3(0.0, 0.0, 0.0),
+    --     radius = 25.0,
+    --     type = "police"
+    -- }
+}
+
+-- Framework Detection
+function Config.DetectFramework()
+    if Config.AutoDetectFramework and not Config.ManualFramework then
+        if GetResourceState('es_extended') == 'started' then
+            return 'esx'
+        elseif GetResourceState('qb-core') == 'started' or GetResourceState('qbx_core') == 'started' then
+            return 'qbcore'
+        elseif GetResourceState('qbox-core') == 'started' or GetResourceState('qbx-core') == 'started' then
+            return 'qbox'
+        else
+            return 'standalone'
+        end
+    else
+        return Config.Framework -- Use manual setting
+    end
+end
+
+-- Job information cache using ox_lib cache system
+Config.JobCache = {}
+Config.LastCacheUpdate = 0
+
+-- Advanced job permission checking with caching and database fallback
+function Config.HasJobPermission(playerId, requiredJob, minGrade, framework, frameworkObject)
+    if not Config.EnableJobRestrictions then
+        return true
+    end
+    
+    local currentFramework = framework or Config.Framework
+    
+    -- Check cache first (using ox_lib cache if available)
+    local cacheKey = playerId .. ":" .. (requiredJob or "any")
+    local cachedResult = Config.GetCachedJobInfo(cacheKey)
+    
+    if cachedResult and cachedResult.timestamp > (GetGameTimer() - Config.JobCacheTimeout) then
+        return Config.ValidateJobAccess(cachedResult.jobData, requiredJob, minGrade)
+    end
+    
+    -- Try framework method first
+    local jobData = Config.GetJobFromFramework(playerId, currentFramework, frameworkObject)
+    
+    if not jobData then
+        -- Fallback to database polling
+        jobData = Config.GetJobFromDatabase(playerId, currentFramework)
+    end
+    
+    if jobData then
+        -- Cache the result
+        Config.CacheJobInfo(cacheKey, jobData)
+        return Config.ValidateJobAccess(jobData, requiredJob, minGrade)
+    end
+    
+    return false
+end
+
+-- Get job info from framework objects (real-time)
+function Config.GetJobFromFramework(playerId, framework, frameworkObject)
+    if framework == 'esx' and frameworkObject then
+        local xPlayer = frameworkObject.GetPlayerFromId(playerId)
+        if xPlayer then
+            local job = xPlayer.getJob()
+            return {
+                name = job.name,
+                grade = job.grade,
+                label = job.label
+            }
+        end
+    elseif framework == 'qbcore' and frameworkObject then
+        local Player = frameworkObject.Functions.GetPlayer(playerId)
+        if Player then
+            local job = Player.PlayerData.job
+            return {
+                name = job.name,
+                grade = job.grade and job.grade.level or job.grade,
+                label = job.label
+            }
+        end
+    elseif framework == 'qbox' then
+        local Player = exports.qbox:GetPlayer(playerId)
+        if Player then
+            local job = Player.PlayerData.job
+            return {
+                name = job.name,
+                grade = job.grade,
+                label = job.label
             }
         end
     end
     
+    return nil
+end
+
+-- Validate job access against requirements
+function Config.ValidateJobAccess(jobData, requiredJob, minGrade)
+    if not jobData or not requiredJob then
+        return false
+    end
+    
+    -- Check if job matches (including mapped job names)
+    local jobMatches = false
+    if Config.JobMappings[requiredJob] then
+        for _, jobName in ipairs(Config.JobMappings[requiredJob]) do
+            if jobData.name == jobName then
+                jobMatches = true
+                break
+            end
+        end
+    else
+        jobMatches = jobData.name == requiredJob
+    end
+    
+    if not jobMatches then
+        return false
+    end
+    
+    -- Check grade requirement if enabled
+    if Config.EnableGradeRestrictions and minGrade then
+        return jobData.grade >= minGrade
+    end
+    
+    return true
+end
+
+-- Cache management using ox_lib or fallback
+function Config.GetCachedJobInfo(key)
+    if lib and lib.cache then
+        return lib.cache.get('job_' .. key)
+    else
+        return Config.JobCache[key]
+    end
+end
+
+function Config.CacheJobInfo(key, jobData)
+    local cacheData = {
+        jobData = jobData,
+        timestamp = GetGameTimer()
+    }
+    
+    if lib and lib.cache then
+        lib.cache.set('job_' .. key, cacheData, Config.JobCacheTimeout)
+    else
+        Config.JobCache[key] = cacheData
+    end
+end
+
+-- Legacy permission function for backwards compatibility
+function Config.HasPermission(playerId, framework, frameworkObject)
+    local settings = Config.FrameworkSettings[framework or Config.Framework]
+    
+    if not settings or not settings.jobRestriction then
+        return true
+    end
+    
+    -- Use new job permission system with default job requirements
+    for _, allowedJob in ipairs(settings.allowedJobs) do
+        if Config.HasJobPermission(playerId, allowedJob, settings.minGrade, framework, frameworkObject) then
+            return true
+        end
+    end
+    
+    return false
+end
+
+-- Enhanced zone checking with job-specific requirements
+function Config.IsInModificationZone(playerCoords, playerId, framework, frameworkObject)
+    for _, zone in ipairs(Config.ModificationZones) do
+        local distance = #(playerCoords - zone.coords)
+        if distance <= zone.radius then
+            -- Check job-specific permissions for this zone
+            if playerId and Config.EnableJobRestrictions then
+                if zone.requiredJob then
+                    local hasAccess = Config.HasJobPermission(
+                        playerId, 
+                        zone.requiredJob, 
+                        zone.minGrade, 
+                        framework, 
+                        frameworkObject
+                    )
+                    
+                    if not hasAccess then
+                        return false, {
+                            allowed = false,
+                            message = string.format("Access denied. Requires %s (Grade %d+)", 
+                                zone.jobLabel or zone.requiredJob, zone.minGrade or 0),
+                            zone = zone,
+                            requiredJob = zone.requiredJob,
+                            minGrade = zone.minGrade
+                        }
+                    end
+                else
+                    -- Fallback to legacy permission system
+                    if framework and not Config.HasPermission(playerId, framework, frameworkObject) then
+                        return false, {
+                            allowed = false,
+                            message = "You don't have permission to use vehicle modifications",
+                            zone = zone
+                        }
+                    end
+                end
+            end
+
+            return true, {
+                allowed = true,
+                message = "Access granted at " .. zone.name,
+                zone = zone
+            }
+        end
+    end
+
     return false, {
-        allowed = false, 
-        message = "You must be at a designated modification garage", 
+        allowed = false,
+        message = "You must be at a designated modification garage",
         zone = nil
     }
+end
+
+-- Database polling system for job information (async with ox_lib)
+function Config.GetJobFromDatabase(playerId, framework)
+    if not Config.AutoDetectJobTables or not Config.JobTables[framework] then
+        return nil
+    end
+    
+    local jobTables = Config.JobTables[framework]
+    local identifier = Config.GetPlayerIdentifier(playerId)
+    
+    if not identifier then
+        return nil
+    end
+    
+    -- Use oxmysql for async database queries
+    local ox_mysql = exports['oxmysql']
+    if not ox_mysql then
+        if Config.Debug then
+            print("^3[AUTO-CONFIG]:^0 Warning: oxmysql not available for database job polling")
+        end
+        return nil
+    end
+    
+    local jobData = nil
+    local completed = false
+    
+    if framework == 'esx' then
+        -- ESX job query
+        local query = string.format(
+            "SELECT u.job, u.job_grade, j.label FROM %s u JOIN %s j ON u.job = j.name WHERE u.%s = ?",
+            jobTables.users, jobTables.jobs, jobTables.identifierField
+        )
+        
+        ox_mysql:execute(query, {identifier}, function(result)
+            if result and result[1] then
+                jobData = {
+                    name = result[1].job,
+                    grade = result[1].job_grade,
+                    label = result[1].label
+                }
+            end
+            completed = true
+        end)
+        
+    elseif framework == 'qbcore' then
+        -- QBCore job query (handles JSON job column)
+        local query = string.format(
+            "SELECT %s FROM %s WHERE %s = ?",
+            jobTables.jobDataColumn, jobTables.players, jobTables.identifierField
+        )
+        
+        ox_mysql:execute(query, {identifier}, function(result)
+            if result and result[1] and result[1][jobTables.jobDataColumn] then
+                local jobJson = json.decode(result[1][jobTables.jobDataColumn])
+                if jobJson then
+                    jobData = {
+                        name = jobJson.name,
+                        grade = jobJson.grade and jobJson.grade.level or jobJson.grade,
+                        label = jobJson.label
+                    }
+                end
+            end
+            completed = true
+        end)
+        
+    elseif framework == 'qbox' then
+        -- QBox job query
+        local query = string.format(
+            "SELECT %s, %s FROM %s WHERE %s = ?",
+            jobTables.userJobField, jobTables.userGradeField, jobTables.players, jobTables.identifierField
+        )
+        
+        ox_mysql:execute(query, {identifier}, function(result)
+            if result and result[1] then
+                jobData = {
+                    name = result[1][jobTables.userJobField],
+                    grade = result[1][jobTables.userGradeField],
+                    label = result[1][jobTables.userJobField] -- Fallback
+                }
+            end
+            completed = true
+        end)
+    end
+    
+    -- Wait for async query to complete (with timeout)
+    local timeout = 0
+    while not completed and timeout < 50 do -- 500ms max wait
+        Citizen.Wait(10)
+        timeout = timeout + 1
+    end
+    
+    return jobData
+end
+
+-- Get player identifier based on framework
+function Config.GetPlayerIdentifier(playerId)
+    local framework = Config.Framework
+    
+    if framework == 'esx' then
+        -- ESX uses steam identifier
+        for _, id in ipairs(GetPlayerIdentifiers(playerId)) do
+            if string.find(id, "steam:") then
+                return id
+            end
+        end
+    elseif framework == 'qbcore' or framework == 'qbox' then
+        -- QBCore/QBox uses citizenid (license identifier)
+        for _, id in ipairs(GetPlayerIdentifiers(playerId)) do
+            if string.find(id, "license:") then
+                return string.gsub(id, "license:", "")
+            end
+        end
+    end
+    
+    return nil
+end
+
+-- Clean up expired cache entries
+function Config.CleanJobCache()
+    if not lib or not lib.cache then
+        local currentTime = GetGameTimer()
+        for key, data in pairs(Config.JobCache) do
+            if data.timestamp < (currentTime - Config.JobCacheTimeout) then
+                Config.JobCache[key] = nil
+            end
+        end
+    end
 end
 
 -- Check if vehicle is an emergency vehicle
@@ -106,34 +636,121 @@ function Config.IsEmergencyVehicle(vehicle)
     return IsVehicleEmergency(vehicle)
 end
 
--- This helper ensures we catch all emergency vehicles, including custom ones
+-- Manual Emergency Vehicle List (only used if ManualVehicleDetection = true)
+Config.ManualEmergencyVehicles = {
+    -- Add your custom emergency vehicles here if you want manual control
+    "ambulance", "firetruk", "police", "police2", "police3", "police4",
+    "policeb", "policet", "sheriff", "sheriff2", "fbi", "fbi2", "riot",
+    "lguard", "pranger", "polmav", "predator", "riot2"
+    -- Add custom vehicle models here
+}
+
+-- Auto-detect emergency vehicles or use manual list
 function IsVehicleEmergency(vehicle)
-    -- Traditional emergency flag check
-    if IsVehicleEmergencyVehicle(vehicle) then
-        return true
-    end
-    
-    -- Check emergency vehicle class (18)
-    if GetVehicleClass(vehicle) == 18 then
-        return true
-    end
-    
-    -- Check for emergency livery or sirens
-    if DoesVehicleHaveSiren(vehicle) then
-        return true
-    end
-    
-    -- Check specific models that might not have flags but are emergency vehicles
-    local models = {
-        "ambulance", "firetruk", "police", "police2", "police3", "police4", 
-        "policeb", "policet", "sheriff", "sheriff2"
-    }
-    
-    for _, model in ipairs(models) do
-        if IsVehicleModel(vehicle, GetHashKey(model)) then
+    if Config.ManualVehicleDetection then
+        -- Use manual vehicle list
+        for _, model in ipairs(Config.ManualEmergencyVehicles) do
+            if IsVehicleModel(vehicle, GetHashKey(model)) then
+                return true
+            end
+        end
+        return false
+    else
+        -- Auto-detection mode
+        -- Check emergency vehicle class (18) - most reliable
+        if GetVehicleClass(vehicle) == 18 then
             return true
         end
+        
+        -- Check if vehicle has emergency lights (some servers may have this native)
+        -- Commented out as this native may not be available on all servers
+        -- if GetVehicleHasKstock and GetVehicleHasKstock(vehicle) then
+        --     return true
+        -- end
+        
+        -- Check common emergency vehicle models as fallback
+        local commonModels = {
+            "ambulance", "firetruk", "police", "police2", "police3", "police4",
+            "policeb", "policet", "sheriff", "sheriff2", "fbi", "fbi2", "riot",
+            "lguard", "pranger", "polmav", "predator", "riot2"
+        }
+        
+        for _, model in ipairs(commonModels) do
+            if IsVehicleModel(vehicle, GetHashKey(model)) then
+                return true
+            end
+        end
+        
+        return false
+    end
+end
+
+-- Initialize all auto-configurations
+function Config.Initialize()
+    if Config.AutoConfigure then
+        Config.AutoConfigureFramework()
+        Config.AutoConfigureZones()
+        
+        -- Use manual zones if specified
+        if Config.ManualZones and Config.ManualModificationZones and #Config.ManualModificationZones > 0 then
+            Config.ModificationZones = Config.ManualModificationZones
+        end
+        
+        -- Validate configuration
+        Config.ValidateConfiguration()
+        
+        if Config.Debug then
+            print("^2[AUTO-CONFIG]:^0 Emergency Vehicle Menu auto-configuration completed")
+            print("^2[AUTO-CONFIG]:^0 Framework: " .. (Config.Framework or "unknown"))
+            print("^2[AUTO-CONFIG]:^0 Zones: " .. #Config.ModificationZones)
+            print("^2[AUTO-CONFIG]:^0 Vehicle Detection: " .. (Config.ManualVehicleDetection and "Manual" or "Auto"))
+        end
+    else
+        if Config.Debug then
+            print("^3[AUTO-CONFIG]:^0 Auto-configuration disabled, using manual settings")
+        end
+    end
+end
+
+-- Validate configuration and provide fallbacks
+function Config.ValidateConfiguration()
+    -- Ensure we have modification zones
+    if not Config.ModificationZones or #Config.ModificationZones == 0 then
+        print("^3[AUTO-CONFIG]:^0 Warning: No modification zones configured! Using default zone.")
+        Config.ModificationZones = {{
+            name = "Default Emergency Services Garage",
+            coords = vector3(454.6, -1017.4, 28.4), -- Mission Row PD
+            radius = 30.0,
+            type = "police"
+        }}
     end
     
-    return false
+    -- Ensure framework settings exist
+    if not Config.FrameworkSettings or not Config.FrameworkSettings[Config.Framework] then
+        print("^3[AUTO-CONFIG]:^0 Warning: No framework settings for " .. Config.Framework .. ". Using defaults.")
+        if not Config.FrameworkSettings then Config.FrameworkSettings = {} end
+        Config.FrameworkSettings[Config.Framework] = {
+            jobRestriction = false,
+            locationOnly = true
+        }
+    end
+    
+    -- Ensure enabled modifications are configured
+    if not Config.EnabledModifications then
+        print("^3[AUTO-CONFIG]:^0 Warning: No modifications enabled! Enabling defaults.")
+        Config.EnabledModifications = {
+            Liveries = true,
+            CustomLiveries = true,
+            Performance = true,
+            Appearance = true,
+            Neon = false,
+            Extras = true,
+            Doors = true
+        }
+    end
+    
+    -- Ensure custom liveries table exists
+    if not Config.CustomLiveries then
+        Config.CustomLiveries = {}
+    end
 end

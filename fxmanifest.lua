@@ -1,10 +1,10 @@
 fx_version 'cerulean'
 game 'gta5'
 
-name 'Emergency Vehicle Modifications'
-description 'A script for emergency vehicle modifications with custom livery support'
-author 'Your Name'
-version '1.0.0'
+name 'Emergency Vehicle Menu - Auto-Configuration Edition'
+description 'Next-generation emergency vehicle modification system with complete auto-configuration, advanced job-based access control, and multi-framework support (ESX, QBCore, QBox, Standalone). Zero manual setup required!'
+author 'DaemonAlex'
+version '2.0.0'
 
 shared_scripts {
     '@ox_lib/init.lua',
