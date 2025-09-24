@@ -4,7 +4,7 @@ game 'gta5'
 name 'Emergency Vehicle Menu - Auto-Configuration Edition'
 description 'Next-generation emergency vehicle modification system with complete auto-configuration, advanced job-based access control, and multi-framework support (ESX, QBCore, QBox, Standalone). Zero manual setup required!'
 author 'DaemonAlex'
-version '2.0.0'
+version '2.0.1'
 
 shared_scripts {
     '@ox_lib/init.lua',

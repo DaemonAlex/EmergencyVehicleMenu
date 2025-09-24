@@ -129,47 +129,47 @@ Config.ModificationZones = {}
 function Config.AutoConfigureZones()
     -- Default zones with job restrictions (auto-configured based on framework)
     local defaultZones = {
-        -- Police Stations (Police job, grade 4+)
+        -- Police Stations (Police job, grade 4+) - Repositioned to parking areas with car-sized zones
         {
-            name = "Mission Row Police Department",
-            coords = vector3(454.6, -1017.4, 28.4),
-            radius = 30.0,
+            name = "Mission Row Police Department - Parking Garage",
+            coords = vector3(454.2, -1025.1, 28.4),
+            radius = 4.0,
             type = "police",
             requiredJob = "police",
             minGrade = 4,
             jobLabel = "Police Officer"
         },
         {
-            name = "Davis Sheriff Station", 
-            coords = vector3(397.4, -1607.7, 29.3),
-            radius = 25.0,
+            name = "Davis Sheriff Station - Parking Lot",
+            coords = vector3(379.9, -1600.5, 29.3),
+            radius = 4.0,
             type = "police",
             requiredJob = "police",
             minGrade = 4,
             jobLabel = "Police Officer"
         },
         {
-            name = "Sandy Shores Sheriff Office",
-            coords = vector3(1853.7, 3675.9, 33.7),
-            radius = 25.0,
+            name = "Sandy Shores Sheriff Office - Garage",
+            coords = vector3(1862.1, 3673.8, 33.7),
+            radius = 4.0,
             type = "police",
             requiredJob = "police",
             minGrade = 4,
             jobLabel = "Police Officer"
         },
         {
-            name = "Paleto Bay Sheriff Office",
-            coords = vector3(-448.5, 6012.6, 31.7),
-            radius = 25.0,
+            name = "Paleto Bay Sheriff Office - Parking",
+            coords = vector3(-456.3, 6008.4, 31.3),
+            radius = 4.0,
             type = "police",
             requiredJob = "police",
             minGrade = 4,
             jobLabel = "Police Officer"
         },
         {
-            name = "Vespucci Police Station",
-            coords = vector3(-1096.2, -836.3, 37.7),
-            radius = 25.0,
+            name = "Vespucci Police Station - Garage",
+            coords = vector3(-1088.6, -834.7, 37.7),
+            radius = 4.0,
             type = "police",
             requiredJob = "police",
             minGrade = 4,
@@ -177,36 +177,36 @@ function Config.AutoConfigureZones()
         },
         -- Fire Stations (Fire job, grade 4+)
         {
-            name = "Los Santos Fire Station 1",
-            coords = vector3(1204.3, -1473.2, 34.9),
-            radius = 25.0,
+            name = "Los Santos Fire Station 1 - Garage",
+            coords = vector3(1193.8, -1464.8, 34.9),
+            radius = 4.0,
             type = "fire",
             requiredJob = "fire",
             minGrade = 4,
             jobLabel = "Firefighter"
         },
         {
-            name = "Davis Fire Station",
-            coords = vector3(208.3, -1660.1, 29.8),
-            radius = 25.0,
+            name = "Davis Fire Station - Garage",
+            coords = vector3(213.7, -1644.2, 29.8),
+            radius = 4.0,
             type = "fire",
             requiredJob = "fire",
             minGrade = 4,
             jobLabel = "Firefighter"
         },
         {
-            name = "Paleto Bay Fire Station",
-            coords = vector3(-379.5, 6118.6, 31.5),
-            radius = 25.0,
+            name = "Paleto Bay Fire Station - Garage",
+            coords = vector3(-367.2, 6123.4, 31.5),
+            radius = 4.0,
             type = "fire",
             requiredJob = "fire",
             minGrade = 4,
             jobLabel = "Firefighter"
         },
         {
-            name = "Sandy Shores Fire Station",
-            coords = vector3(1695.2, 3584.5, 35.6),
-            radius = 25.0,
+            name = "Sandy Shores Fire Station - Garage",
+            coords = vector3(1691.5, 3581.2, 35.6),
+            radius = 4.0,
             type = "fire",
             requiredJob = "fire",
             minGrade = 4,
@@ -214,18 +214,18 @@ function Config.AutoConfigureZones()
         },
         -- Hospitals (Ambulance job, grade 4+)
         {
-            name = "Pillbox Hill Medical Center",
-            coords = vector3(298.7, -584.6, 43.3),
-            radius = 30.0,
+            name = "Pillbox Hill Medical Center - Parking Garage",
+            coords = vector3(338.5, -580.3, 28.8),
+            radius = 4.0,
             type = "medical",
             requiredJob = "ambulance",
             minGrade = 4,
             jobLabel = "EMS Personnel"
         },
         {
-            name = "Sandy Shores Medical Center",
-            coords = vector3(1839.6, 3672.9, 34.3),
-            radius = 25.0,
+            name = "Sandy Shores Medical Center - Parking",
+            coords = vector3(1835.2, 3678.9, 34.3),
+            radius = 4.0,
             type = "medical",
             requiredJob = "ambulance",
             minGrade = 4,
@@ -258,8 +258,8 @@ Config.EnabledModifications = {
 }
 
 -- Other auto-configured settings (can be manually overridden)
-Config.ShowBlips = true         -- Show modification zone blips on map
-Config.ShowMarkers = true       -- Show ground markers at zones  
+Config.ShowBlips = false        -- Show modification zone blips on map (disabled for invisible zones)
+Config.ShowMarkers = false      -- Show ground markers at zones (disabled for invisible zones)
 Config.EmergencyVehiclesOnly = true  -- Only allow emergency vehicles
 
 -- Custom liveries configuration - add your vehicle liveries here
@@ -719,8 +719,8 @@ function Config.ValidateConfiguration()
         print("^3[AUTO-CONFIG]:^0 Warning: No modification zones configured! Using default zone.")
         Config.ModificationZones = {{
             name = "Default Emergency Services Garage",
-            coords = vector3(454.6, -1017.4, 28.4), -- Mission Row PD
-            radius = 30.0,
+            coords = vector3(454.2, -1025.1, 28.4), -- Mission Row PD Parking Garage
+            radius = 4.0,
             type = "police"
         }}
     end

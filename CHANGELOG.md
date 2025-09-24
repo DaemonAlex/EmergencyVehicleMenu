@@ -2,6 +2,28 @@
 
 All notable changes to the Emergency Vehicle Menu project will be documented in this file.
 
+## [2.0.1] - 2024-09-23 - **Zone Optimization & Performance Update**
+
+### 🔧 **Zone Fixes & Optimizations**
+- **Fixed Zone Sizes** - Reduced zone radius from 25-30m to 4m (car-sized zones)
+- **Repositioned Zones** - Moved zones from building centers to actual parking lots and garages
+- **Eliminated Notification Spam** - Added 3-second cooldown between notifications
+- **Optimized Performance** - Reduced zone checking frequency from 100ms to 500ms
+- **Improved Markers** - Smaller, less intrusive visual markers with reduced opacity
+- **Better Zone Detection** - Zones now only activate in accessible parking areas
+
+### 📍 **Updated Zone Locations**
+- **Police Stations** - Moved to parking garages and accessible parking areas
+- **Fire Stations** - Positioned in vehicle bays and maintenance areas
+- **Medical Centers** - Located in emergency vehicle parking zones
+- **Better Accessibility** - All zones now positioned where vehicles can easily enter/exit
+
+### 🚀 **Performance Improvements**
+- **Reduced Client Load** - Optimized thread sleep times and zone checking intervals
+- **Less Visual Spam** - Markers only appear when very close to zones
+- **Smoother Experience** - Eliminated constant help text flickering
+- **Better Resource Usage** - Improved overall script performance
+
 ## [2.0.0] - 2024-01-XX - **Major Release: Auto-Configuration Edition**
 
 ### 🚀 **Major Features Added**

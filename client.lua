@@ -134,52 +134,53 @@ CreateThread(function()
     end
 end)
 
--- Zone proximity and marker thread
+-- Invisible zone checking - no visual markers, only access control
+local lastAccessAttempt = {}
+local ACCESS_COOLDOWN = 2000 -- 2 seconds between access attempts per zone
+
 CreateThread(function()
     while true do
         local sleep = 1000
         local playerPed = PlayerPedId()
         local playerCoords = GetEntityCoords(playerPed)
-        local nearZone = false
+        local vehicle = GetVehiclePedIsIn(playerPed, false)
+        local currentTime = GetGameTimer()
 
-        for _, zone in ipairs(Config.ModificationZones) do
-            local distance = #(playerCoords - zone.coords)
-
-            if distance <= zone.radius + 10.0 then
-                sleep = 100
-                nearZone = true
-
-                -- Show marker if enabled
-                if Config.ShowMarkers then
-                    local markerColor = zone.type == "police" and {0, 100, 255, 100} or {255, 50, 50, 100}
-                    DrawMarker(1, zone.coords.x, zone.coords.y, zone.coords.z - 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                              zone.radius * 2.0, zone.radius * 2.0, 1.0,
-                              markerColor[1], markerColor[2], markerColor[3], markerColor[4],
-                              false, true, 2, false, nil, nil, false)
-                end
+        if vehicle ~= 0 then
+            for i, zone in ipairs(Config.ModificationZones) do
+                local distance = #(playerCoords - zone.coords)
 
                 if distance <= zone.radius then
-                    -- Player is in zone
-                    local vehicle = GetVehiclePedIsIn(playerPed, false)
-                    if vehicle ~= 0 then
-                        DisplayHelpTextThisFrame("Press ~INPUT_CONTEXT~ to open Vehicle Modifications or use /modveh")
+                    -- Player entered zone with vehicle - check access with cooldown
+                    if not lastAccessAttempt[i] or (currentTime - lastAccessAttempt[i]) >= ACCESS_COOLDOWN then
+                        lastAccessAttempt[i] = currentTime
 
-                        if IsControlJustPressed(0, 38) then -- E key
+                        -- Check zone access
+                        local inZone, zoneInfo = Config.IsInModificationZone(playerCoords)
+
+                        if inZone then
+                            -- Access granted - show success notification and open menu
+                            lib.notify({
+                                title = 'Access Granted',
+                                description = zoneInfo.message,
+                                type = 'success',
+                                duration = 3000
+                            })
                             TriggerEvent('vehiclemods:client:openVehicleModMenu')
+                        else
+                            -- Access denied - show error notification
+                            lib.notify({
+                                title = 'Access Denied',
+                                description = zoneInfo.message,
+                                type = 'error',
+                                duration = 4000
+                            })
                         end
-                    else
-                        DisplayHelpTextThisFrame("Enter a vehicle to access modifications")
                     end
-                else
-                    -- Player is approaching zone
-                    DisplayHelpTextThisFrame("Vehicle Modification Zone nearby")
+                    sleep = 500 -- Check more frequently when in zone
+                    break
                 end
-                break
             end
-        end
-
-        if not nearZone then
-            sleep = 2000 -- Sleep longer when not near any zones
         end
 
         Wait(sleep)
