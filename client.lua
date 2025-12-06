@@ -193,8 +193,11 @@ AddEventHandler('vehiclemods:client:openVehicleModMenu', function()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
     local vehicleTitle = "Vehicle Menu"
     local vehicleInfo = nil
-    
+
     if vehicle ~= 0 then
+        -- IMPORTANT: Must set mod kit before accessing vehicle mods
+        SetVehicleModKit(vehicle, 0)
+
         local vehicleModel = GetEntityModel(vehicle)
         local vehicleModelName = GetDisplayNameFromVehicleModel(vehicleModel)
         local vehicleMake = GetMakeNameFromVehicleModel(vehicleModel)
@@ -315,7 +318,7 @@ end)
 -- Livery Menu
 function OpenLiveryMenu()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
-    
+
     if vehicle == 0 then
         lib.notify({
             title = 'Error',
@@ -325,7 +328,10 @@ function OpenLiveryMenu()
         })
         return
     end
-    
+
+    -- IMPORTANT: Must set mod kit before accessing vehicle mods
+    SetVehicleModKit(vehicle, 0)
+
     local options = {}
     local numLiveries = GetVehicleLiveryCount(vehicle)
     local currentLivery = GetVehicleLivery(vehicle)
@@ -821,7 +827,10 @@ end
 -- Performance Menu
 function OpenPerformanceMenu()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
-    
+
+    -- IMPORTANT: Must set mod kit before accessing vehicle mods
+    SetVehicleModKit(vehicle, 0)
+
     local modTypes = {
         { name = "Engine", id = 11 },
         { name = "Brakes", id = 12 },
@@ -904,6 +913,10 @@ end
 -- Performance mod selection menu
 function OpenPerformanceModMenu(modType, modTypeName)
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+
+    -- IMPORTANT: Must set mod kit before accessing vehicle mods
+    SetVehicleModKit(vehicle, 0)
+
     local options = {}
     local numMods = GetNumVehicleMods(vehicle, modType)
     local currentMod = GetVehicleMod(vehicle, modType)
@@ -1544,6 +1557,10 @@ end
 -- Wheels Menu
 function OpenWheelsMenu()
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+
+    -- IMPORTANT: Must set mod kit before accessing vehicle mods
+    SetVehicleModKit(vehicle, 0)
+
     local wheelType = GetVehicleWheelType(vehicle)
 
     local wheelTypeOptions = {
@@ -1605,6 +1622,10 @@ end
 -- Wheel Style Selection Menu
 function OpenWheelSelectionMenu(wheelType)
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+
+    -- IMPORTANT: Must set mod kit before accessing vehicle mods
+    SetVehicleModKit(vehicle, 0)
+
     local options = {}
 
     -- Get the number of wheel mods available
