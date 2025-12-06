@@ -307,8 +307,7 @@ AddEventHandler('vehiclemods:client:openVehicleModMenu', function()
         id = 'VehicleModMenu',
         title = vehicleTitle,
         metadata = vehicleInfo,
-        options = options,
-        close = false
+        options = options
     })
     lib.showContext('VehicleModMenu')
 end)
@@ -417,7 +416,9 @@ function OpenLiveryMenu()
         title = 'Select Livery',
         options = options,
         menu = 'VehicleModMenu',
-        close = false
+        onBack = function()
+            TriggerEvent('vehiclemods:client:openVehicleModMenu')
+        end
     })
     lib.showContext('LiveryMenu')
 end
@@ -511,7 +512,9 @@ function OpenCustomLiveriesMenu()
         title = 'Custom Liveries',
         options = options,
         menu = 'VehicleModMenu',
-        close = false
+        onBack = function()
+            TriggerEvent('vehiclemods:client:openVehicleModMenu')
+        end
     })
     lib.showContext('CustomLiveriesMenu')
 end
@@ -808,7 +811,9 @@ function FilteredLiveryMenu(searchTerm)
         },
         options = options,
         menu = 'VehicleModMenu',
-        close = false
+        onBack = function()
+            TriggerEvent('vehiclemods:client:openVehicleModMenu')
+        end
     })
     lib.showContext('FilteredLiveryMenu')
 end
@@ -873,7 +878,9 @@ function OpenPerformanceMenu()
         title = 'Performance Upgrades',
         options = options,
         menu = 'VehicleModMenu',
-        close = false
+        onBack = function()
+            TriggerEvent('vehiclemods:client:openVehicleModMenu')
+        end
     })
     lib.showContext('PerformanceMenu')
 end
@@ -960,7 +967,9 @@ function OpenPerformanceModMenu(modType, modTypeName)
         title = modTypeName .. ' Upgrades',
         options = options,
         menu = 'PerformanceMenu',
-        close = false
+        onBack = function()
+            OpenPerformanceMenu()
+        end
     })
     lib.showContext('PerformanceModMenu')
 end
@@ -1007,7 +1016,9 @@ function OpenExtrasMenu()
         title = 'Toggle Extras',
         options = options,
         menu = 'VehicleModMenu',
-        close = false
+        onBack = function()
+            TriggerEvent('vehiclemods:client:openVehicleModMenu')
+        end
     })
     lib.showContext('ExtrasMenu')
 end
@@ -1083,7 +1094,9 @@ function OpenDoorsMenu()
         title = 'Doors Control',
         options = options,
         menu = 'VehicleModMenu',
-        close = false
+        onBack = function()
+            TriggerEvent('vehiclemods:client:openVehicleModMenu')
+        end
     })
     lib.showContext('DoorsMenu')
 end
@@ -1126,7 +1139,9 @@ function OpenAppearanceMenu()
         title = 'Vehicle Appearance',
         options = options,
         menu = 'VehicleModMenu',
-        close = false
+        onBack = function()
+            TriggerEvent('vehiclemods:client:openVehicleModMenu')
+        end
     })
     lib.showContext('AppearanceMenu')
 end
@@ -1174,7 +1189,9 @@ function OpenWindowTintMenu()
         title = 'Window Tint',
         options = options,
         menu = 'AppearanceMenu',
-        close = false
+        onBack = function()
+            OpenAppearanceMenu()
+        end
     })
     lib.showContext('WindowTintMenu')
 end
@@ -1230,7 +1247,9 @@ function OpenNeonMenu()
         title = 'Neon Lights',
         options = options,
         menu = 'AppearanceMenu',
-        close = false
+        onBack = function()
+            OpenAppearanceMenu()
+        end
     })
     lib.showContext('NeonMenu')
 end
@@ -1284,7 +1303,9 @@ function OpenNeonLayoutMenu()
         title = 'Neon Layout',
         options = options,
         menu = 'NeonMenu',
-        close = false
+        onBack = function()
+            OpenNeonMenu()
+        end
     })
     lib.showContext('NeonLayoutMenu')
 end
@@ -1338,7 +1359,9 @@ function OpenNeonColorMenu()
         title = 'Neon Colors',
         options = options,
         menu = 'NeonMenu',
-        close = false
+        onBack = function()
+            OpenNeonMenu()
+        end
     })
     lib.showContext('NeonColorMenu')
 end
@@ -1389,7 +1412,9 @@ function OpenColorsMenu()
         title = 'Vehicle Colors',
         options = options,
         menu = 'AppearanceMenu',
-        close = false
+        onBack = function()
+            OpenAppearanceMenu()
+        end
     })
 
     -- Generate primary color menu options
@@ -1441,7 +1466,9 @@ function OpenColorsMenu()
         title = 'Primary Colors',
         menu = 'ColorsMenu',
         options = primaryOptions,
-        close = false
+        onBack = function()
+            OpenColorsMenu()
+        end
     })
 
     lib.registerContext({
@@ -1449,7 +1476,9 @@ function OpenColorsMenu()
         title = 'Secondary Colors',
         menu = 'ColorsMenu',
         options = secondaryOptions,
-        close = false
+        onBack = function()
+            OpenColorsMenu()
+        end
     })
 
     lib.showContext('ColorsMenu')
@@ -1505,7 +1534,9 @@ function OpenPearlescentMenu()
         title = 'Pearlescent Colors',
         options = options,
         menu = 'ColorsMenu',
-        close = false
+        onBack = function()
+            OpenColorsMenu()
+        end
     })
     lib.showContext('PearlescentMenu')
 end
@@ -1564,7 +1595,9 @@ function OpenWheelsMenu()
         title = 'Vehicle Wheels',
         options = options,
         menu = 'AppearanceMenu',
-        close = false
+        onBack = function()
+            OpenAppearanceMenu()
+        end
     })
     lib.showContext('WheelsMenu')
 end
@@ -1610,7 +1643,9 @@ function OpenWheelSelectionMenu(wheelType)
         title = 'Select Wheels',
         options = options,
         menu = 'WheelsMenu',
-        close = false
+        onBack = function()
+            OpenWheelsMenu()
+        end
     })
     lib.showContext('WheelSelectionMenu')
 end
@@ -1660,7 +1695,9 @@ function OpenWheelColorMenu()
         title = 'Wheel Colors',
         options = options,
         menu = 'WheelsMenu',
-        close = false
+        onBack = function()
+            OpenWheelsMenu()
+        end
     })
     lib.showContext('WheelColorMenu')
 end
