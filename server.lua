@@ -200,6 +200,51 @@ CreateThread(function()
         end
     end)
 
+    -- Create vehicle_presets table for fleet standardization (v2.1.0+)
+    ox_mysql:execute([[
+        CREATE TABLE IF NOT EXISTS vehicle_presets (
+            id INT NOT NULL AUTO_INCREMENT,
+            preset_name VARCHAR(100) NOT NULL,
+            vehicle_model VARCHAR(255) NOT NULL,
+            owner_identifier VARCHAR(255) NOT NULL,
+            job_preset VARCHAR(50) DEFAULT NULL,
+            preset_data JSON NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY unique_preset (owner_identifier, preset_name, vehicle_model),
+            INDEX idx_job_preset (job_preset)
+        )
+    ]], {}, function(result)
+        if result then
+            print("^2INFO:^0 vehicle_presets table created or already exists.")
+        else
+            print("^1ERROR:^0 Failed to create vehicle_presets table.")
+        end
+    end)
+
+    -- Create player_livery_memory table for auto-apply (v2.1.0+)
+    ox_mysql:execute([[
+        CREATE TABLE IF NOT EXISTS player_livery_memory (
+            id INT NOT NULL AUTO_INCREMENT,
+            identifier VARCHAR(255) NOT NULL,
+            vehicle_model VARCHAR(255) NOT NULL,
+            livery_index INT DEFAULT -1,
+            livery_mod INT DEFAULT -1,
+            custom_livery VARCHAR(255) DEFAULT NULL,
+            extras JSON DEFAULT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY unique_memory (identifier, vehicle_model)
+        )
+    ]], {}, function(result)
+        if result then
+            print("^2INFO:^0 player_livery_memory table created or already exists.")
+        else
+            print("^1ERROR:^0 Failed to create player_livery_memory table.")
+        end
+    end)
+
     -- Load custom liveries from database
     ox_mysql:execute("SELECT vehicle_model, livery_name, livery_file FROM custom_liveries", {}, function(result)
         if result and #result > 0 then
@@ -435,4 +480,384 @@ end)
 
 -- Duplicate event handler removed - functionality already exists above
 
+-----------------------------------------------------------
+-- FIELD REPAIR SYSTEM (v2.1.0+)
+-- Server-side item checking and cooldown management
+-----------------------------------------------------------
+local fieldRepairCooldowns = {} -- Track per-player cooldowns
+
+-- Get player identifier based on framework
+local function GetPlayerIdentifier(playerId)
+    if currentFramework == 'esx' and frameworkObject then
+        local xPlayer = frameworkObject.GetPlayerFromId(playerId)
+        return xPlayer and xPlayer.identifier or nil
+    elseif currentFramework == 'qbcore' and frameworkObject then
+        local Player = frameworkObject.Functions.GetPlayer(playerId)
+        return Player and Player.PlayerData.citizenid or nil
+    elseif currentFramework == 'qbox' and frameworkObject then
+        local Player = frameworkObject.GetPlayer(playerId)
+        return Player and Player.PlayerData.citizenid or nil
+    end
+    return 'player_' .. tostring(playerId) -- Fallback for standalone
+end
+
+-- Get player job based on framework
+local function GetPlayerJob(playerId)
+    if currentFramework == 'esx' and frameworkObject then
+        local xPlayer = frameworkObject.GetPlayerFromId(playerId)
+        if xPlayer then
+            return xPlayer.job.name, xPlayer.job.grade
+        end
+    elseif currentFramework == 'qbcore' and frameworkObject then
+        local Player = frameworkObject.Functions.GetPlayer(playerId)
+        if Player then
+            return Player.PlayerData.job.name, Player.PlayerData.job.grade.level
+        end
+    elseif currentFramework == 'qbox' and frameworkObject then
+        local Player = frameworkObject.GetPlayer(playerId)
+        if Player then
+            return Player.PlayerData.job.name, Player.PlayerData.job.grade.level
+        end
+    end
+    return nil, 0
+end
+
+-- Check if player has required item
+local function HasRequiredItem(playerId, items)
+    if currentFramework == 'esx' and frameworkObject then
+        local xPlayer = frameworkObject.GetPlayerFromId(playerId)
+        if xPlayer then
+            for _, itemName in ipairs(items) do
+                local item = xPlayer.getInventoryItem(itemName)
+                if item and item.count > 0 then
+                    return true, itemName
+                end
+            end
+        end
+    elseif currentFramework == 'qbcore' and frameworkObject then
+        local Player = frameworkObject.Functions.GetPlayer(playerId)
+        if Player then
+            for _, itemName in ipairs(items) do
+                local item = Player.Functions.GetItemByName(itemName)
+                if item and item.amount > 0 then
+                    return true, itemName
+                end
+            end
+        end
+    elseif currentFramework == 'qbox' and frameworkObject then
+        -- QBox uses ox_inventory typically
+        for _, itemName in ipairs(items) do
+            local hasItem = exports.ox_inventory:GetItemCount(playerId, itemName)
+            if hasItem and hasItem > 0 then
+                return true, itemName
+            end
+        end
+    else
+        -- Standalone - always allow or check ox_inventory if available
+        if GetResourceState('ox_inventory') == 'started' then
+            for _, itemName in ipairs(items) do
+                local hasItem = exports.ox_inventory:GetItemCount(playerId, itemName)
+                if hasItem and hasItem > 0 then
+                    return true, itemName
+                end
+            end
+        else
+            return true, items[1] -- Allow in standalone without inventory
+        end
+    end
+    return false, nil
+end
+
+-- Remove item from player inventory
+local function RemoveItem(playerId, itemName)
+    if currentFramework == 'esx' and frameworkObject then
+        local xPlayer = frameworkObject.GetPlayerFromId(playerId)
+        if xPlayer then
+            xPlayer.removeInventoryItem(itemName, 1)
+            return true
+        end
+    elseif currentFramework == 'qbcore' and frameworkObject then
+        local Player = frameworkObject.Functions.GetPlayer(playerId)
+        if Player then
+            Player.Functions.RemoveItem(itemName, 1)
+            TriggerClientEvent('inventory:client:ItemBox', playerId, frameworkObject.Shared.Items[itemName], 'remove')
+            return true
+        end
+    elseif currentFramework == 'qbox' or GetResourceState('ox_inventory') == 'started' then
+        exports.ox_inventory:RemoveItem(playerId, itemName, 1)
+        return true
+    end
+    return true -- Standalone without inventory
+end
+
+-- Field repair validation
+RegisterNetEvent('vehiclemods:server:requestFieldRepair')
+AddEventHandler('vehiclemods:server:requestFieldRepair', function()
+    local src = source
+    local cfg = Config.FieldRepair
+
+    if not cfg or not cfg.enabled then
+        TriggerClientEvent('vehiclemods:client:fieldRepairResult', src, false, 'Field repair is disabled')
+        return
+    end
+
+    -- Check cooldown
+    local currentTime = os.time()
+    if fieldRepairCooldowns[src] and (currentTime - fieldRepairCooldowns[src]) < (cfg.cooldown / 1000) then
+        local remaining = math.ceil((cfg.cooldown / 1000) - (currentTime - fieldRepairCooldowns[src]))
+        TriggerClientEvent('vehiclemods:client:fieldRepairResult', src, false,
+            ('Field repair on cooldown. %d seconds remaining.'):format(remaining))
+        return
+    end
+
+    -- Check job if required
+    local playerJob, playerGrade = GetPlayerJob(src)
+    local jobAllowed = false
+
+    if cfg.allowedJobs and #cfg.allowedJobs > 0 then
+        for _, allowedJob in ipairs(cfg.allowedJobs) do
+            if playerJob == allowedJob then
+                jobAllowed = true
+                break
+            end
+        end
+
+        if not jobAllowed then
+            TriggerClientEvent('vehiclemods:client:fieldRepairResult', src, false,
+                'Your job does not allow field repairs')
+            return
+        end
+
+        -- Check grade
+        if cfg.minGrade > 0 and playerGrade < cfg.minGrade then
+            TriggerClientEvent('vehiclemods:client:fieldRepairResult', src, false,
+                ('Requires job grade %d+'):format(cfg.minGrade))
+            return
+        end
+    end
+
+    -- Check for required item
+    if cfg.requireItem then
+        local hasItem, itemName = HasRequiredItem(src, cfg.alternativeItems or {cfg.itemName})
+        if not hasItem then
+            TriggerClientEvent('vehiclemods:client:fieldRepairResult', src, false,
+                'You need a repair kit to perform field repairs')
+            return
+        end
+
+        -- Consume item if configured
+        if cfg.consumeItem then
+            RemoveItem(src, itemName)
+        end
+    end
+
+    -- Set cooldown and approve repair
+    fieldRepairCooldowns[src] = currentTime
+    TriggerClientEvent('vehiclemods:client:fieldRepairResult', src, true, nil, cfg.maxEngineRepair, cfg.repairTime)
+
+    if Config.Debug then
+        print(("^2[FIELD-REPAIR]:^0 Player %s approved for field repair (Job: %s, Grade: %d)"):format(
+            src, playerJob or "unknown", playerGrade))
+    end
+end)
+
+-----------------------------------------------------------
+-- PRESET SYSTEM (v2.1.0+)
+-- Save, load, delete vehicle configuration presets
+-----------------------------------------------------------
+
+-- Save a preset
+RegisterNetEvent('vehiclemods:server:savePreset')
+AddEventHandler('vehiclemods:server:savePreset', function(presetName, vehicleModel, presetData, isJobPreset)
+    local src = source
+    local identifier = GetPlayerIdentifier(src)
+    local cfg = Config.Presets
+
+    if not cfg or not cfg.enabled then
+        TriggerClientEvent('ox_lib:notify', src, {
+            title = 'Error',
+            description = 'Preset system is disabled',
+            type = 'error'
+        })
+        return
+    end
+
+    local jobPresetName = nil
+    if isJobPreset and cfg.allowJobPresets then
+        local playerJob, playerGrade = GetPlayerJob(src)
+        if playerGrade < cfg.minGradeForJobPresets then
+            TriggerClientEvent('ox_lib:notify', src, {
+                title = 'Error',
+                description = ('Requires grade %d+ to create job presets'):format(cfg.minGradeForJobPresets),
+                type = 'error'
+            })
+            return
+        end
+        jobPresetName = playerJob
+    end
+
+    -- Check preset limits
+    ox_mysql:execute(
+        'SELECT COUNT(*) as count FROM vehicle_presets WHERE owner_identifier = ? AND job_preset IS NULL',
+        {identifier},
+        function(result)
+            local personalCount = result and result[1] and result[1].count or 0
+
+            if not isJobPreset and personalCount >= cfg.maxPresetsPerPlayer then
+                TriggerClientEvent('ox_lib:notify', src, {
+                    title = 'Limit Reached',
+                    description = ('Maximum %d personal presets allowed'):format(cfg.maxPresetsPerPlayer),
+                    type = 'error'
+                })
+                return
+            end
+
+            -- Serialize preset data
+            local presetJson = json.encode(presetData)
+
+            -- Insert or update preset
+            ox_mysql:execute([[
+                INSERT INTO vehicle_presets (preset_name, vehicle_model, owner_identifier, job_preset, preset_data)
+                VALUES (?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE preset_data = VALUES(preset_data), updated_at = CURRENT_TIMESTAMP
+            ]], {presetName, vehicleModel:lower(), identifier, jobPresetName, presetJson}, function(insertResult)
+                if insertResult then
+                    TriggerClientEvent('ox_lib:notify', src, {
+                        title = 'Preset Saved',
+                        description = ('Saved "%s" for %s'):format(presetName, vehicleModel),
+                        type = 'success'
+                    })
+                else
+                    TriggerClientEvent('ox_lib:notify', src, {
+                        title = 'Error',
+                        description = 'Failed to save preset',
+                        type = 'error'
+                    })
+                end
+            end)
+        end
+    )
+end)
+
+-- Load presets for a vehicle
+RegisterNetEvent('vehiclemods:server:loadPresets')
+AddEventHandler('vehiclemods:server:loadPresets', function(vehicleModel)
+    local src = source
+    local identifier = GetPlayerIdentifier(src)
+    local playerJob = GetPlayerJob(src)
+
+    -- Get personal and job presets
+    ox_mysql:execute([[
+        SELECT preset_name, preset_data, job_preset, owner_identifier
+        FROM vehicle_presets
+        WHERE vehicle_model = ? AND (owner_identifier = ? OR job_preset = ?)
+        ORDER BY job_preset IS NOT NULL DESC, preset_name ASC
+    ]], {vehicleModel:lower(), identifier, playerJob}, function(result)
+        local presets = {}
+        if result then
+            for _, row in ipairs(result) do
+                table.insert(presets, {
+                    name = row.preset_name,
+                    data = json.decode(row.preset_data),
+                    isJobPreset = row.job_preset ~= nil,
+                    isOwner = row.owner_identifier == identifier
+                })
+            end
+        end
+        TriggerClientEvent('vehiclemods:client:receivePresets', src, presets)
+    end)
+end)
+
+-- Delete a preset
+RegisterNetEvent('vehiclemods:server:deletePreset')
+AddEventHandler('vehiclemods:server:deletePreset', function(presetName, vehicleModel)
+    local src = source
+    local identifier = GetPlayerIdentifier(src)
+
+    ox_mysql:execute(
+        'DELETE FROM vehicle_presets WHERE preset_name = ? AND vehicle_model = ? AND owner_identifier = ?',
+        {presetName, vehicleModel:lower(), identifier},
+        function(result)
+            if result and result.affectedRows > 0 then
+                TriggerClientEvent('ox_lib:notify', src, {
+                    title = 'Preset Deleted',
+                    description = ('Deleted "%s"'):format(presetName),
+                    type = 'success'
+                })
+            else
+                TriggerClientEvent('ox_lib:notify', src, {
+                    title = 'Error',
+                    description = 'Preset not found or not owned by you',
+                    type = 'error'
+                })
+            end
+        end
+    )
+end)
+
+-----------------------------------------------------------
+-- LIVERY MEMORY SYSTEM (v2.1.0+)
+-- Remember last used livery per vehicle model per player
+-----------------------------------------------------------
+
+-- Save livery selection
+RegisterNetEvent('vehiclemods:server:saveLiveryMemory')
+AddEventHandler('vehiclemods:server:saveLiveryMemory', function(vehicleModel, liveryIndex, liveryMod, customLivery, extras)
+    local src = source
+    local identifier = GetPlayerIdentifier(src)
+    local cfg = Config.AutoApplyLivery
+
+    if not cfg or not cfg.enabled then return end
+
+    local extrasJson = extras and json.encode(extras) or nil
+
+    ox_mysql:execute([[
+        INSERT INTO player_livery_memory (identifier, vehicle_model, livery_index, livery_mod, custom_livery, extras)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+            livery_index = VALUES(livery_index),
+            livery_mod = VALUES(livery_mod),
+            custom_livery = VALUES(custom_livery),
+            extras = VALUES(extras),
+            updated_at = CURRENT_TIMESTAMP
+    ]], {identifier, vehicleModel:lower(), liveryIndex or -1, liveryMod or -1, customLivery, extrasJson})
+
+    if Config.Debug then
+        print(("^2[LIVERY-MEMORY]:^0 Saved for %s: %s (livery: %d, mod: %d, custom: %s)"):format(
+            src, vehicleModel, liveryIndex or -1, liveryMod or -1, customLivery or "none"))
+    end
+end)
+
+-- Load livery memory for a vehicle
+RegisterNetEvent('vehiclemods:server:loadLiveryMemory')
+AddEventHandler('vehiclemods:server:loadLiveryMemory', function(vehicleModel)
+    local src = source
+    local identifier = GetPlayerIdentifier(src)
+    local cfg = Config.AutoApplyLivery
+
+    if not cfg or not cfg.enabled then return end
+
+    ox_mysql:execute(
+        'SELECT livery_index, livery_mod, custom_livery, extras FROM player_livery_memory WHERE identifier = ? AND vehicle_model = ?',
+        {identifier, vehicleModel:lower()},
+        function(result)
+            if result and result[1] then
+                local memory = result[1]
+                local extras = memory.extras and json.decode(memory.extras) or nil
+                TriggerClientEvent('vehiclemods:client:applyLiveryMemory', src, vehicleModel, {
+                    liveryIndex = memory.livery_index,
+                    liveryMod = memory.livery_mod,
+                    customLivery = memory.custom_livery,
+                    extras = extras
+                })
+            end
+        end
+    )
+end)
+
+-- Clear player cooldowns on disconnect
+AddEventHandler('playerDropped', function()
+    local src = source
+    fieldRepairCooldowns[src] = nil
+end)
 

@@ -263,6 +263,53 @@ Config.ShowBlips = false        -- Show modification zone blips on map (disabled
 Config.ShowMarkers = false      -- Show ground markers at zones (disabled for invisible zones)
 Config.EmergencyVehiclesOnly = false  -- Allow any vehicle (DISABLED for admin testing)
 
+-----------------------------------------------------------
+-- FIELD REPAIR SYSTEM (v2.1.0+)
+-- Allows emergency repairs outside of stations with requirements
+-----------------------------------------------------------
+Config.FieldRepair = {
+    enabled = true,                    -- Enable field repair system
+    requireItem = true,                -- Require a toolkit item
+    itemName = 'repairkit',            -- Item name (or 'advanced_repairkit', 'toolkit')
+    alternativeItems = {               -- Alternative items that work
+        'repairkit', 'toolkit', 'mechanickit', 'advanced_repairkit'
+    },
+    allowedJobs = {                    -- Jobs that can use field repair
+        'police', 'ambulance', 'fire', 'mechanic', 'lspd', 'bcso', 'sahp', 'ems', 'lsfd'
+    },
+    minGrade = 0,                      -- Minimum job grade (0 = any grade)
+    maxEngineRepair = 350.0,           -- Max engine health from field repair (350/1000)
+    cooldown = 300000,                 -- 5 minute cooldown between field repairs
+    consumeItem = true,                -- Remove item after use
+    repairTime = 15000                 -- Time in ms for field repair
+}
+
+-----------------------------------------------------------
+-- PRESET/FLEET SYSTEM (v2.1.0+)
+-- Save and load vehicle configurations for fleet standardization
+-----------------------------------------------------------
+Config.Presets = {
+    enabled = true,                    -- Enable preset system
+    maxPresetsPerPlayer = 10,          -- Max presets per player
+    maxPresetsPerJob = 5,              -- Max shared job presets
+    allowJobPresets = true,            -- Allow creating job-wide presets
+    minGradeForJobPresets = 3,         -- Min grade to create job presets (Sergeant+)
+    saveToDatabase = true              -- Persist presets to database
+}
+
+-----------------------------------------------------------
+-- AUTO-APPLY LIVERY SYSTEM (v2.1.0+)
+-- Automatically apply last used livery when spawning vehicles
+-----------------------------------------------------------
+Config.AutoApplyLivery = {
+    enabled = true,                    -- Enable auto-apply
+    applyOnSpawn = true,               -- Apply when vehicle spawns
+    applyOnEnter = false,              -- Apply when entering vehicle (alternative)
+    rememberPerVehicle = true,         -- Remember livery per vehicle model
+    rememberExtras = true,             -- Also remember extra toggles
+    notifyOnApply = true               -- Show notification when auto-applied
+}
+
 -- Custom liveries configuration - add your vehicle liveries here
 Config.CustomLiveries = {
     ["police"] = {

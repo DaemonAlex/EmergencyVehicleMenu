@@ -324,6 +324,18 @@ AddEventHandler('vehiclemods:client:openVehicleModMenu', function()
         end
     })
 
+    -- Field Repair option (v2.1.0+) - works anywhere with toolkit
+    if Config.FieldRepair and Config.FieldRepair.enabled then
+        table.insert(options, {
+            title = 'Field Repair',
+            description = 'Emergency roadside repair (requires toolkit)',
+            icon = 'toolbox',
+            onSelect = function()
+                RequestFieldRepair()
+            end
+        })
+    end
+
     -- These options should always be available
     table.insert(options, {
         title = 'Emergency Repair',
@@ -340,6 +352,18 @@ AddEventHandler('vehiclemods:client:openVehicleModMenu', function()
             FullRepairVehicle()
         end
     })
+
+    -- Preset System (v2.1.0+)
+    if Config.Presets and Config.Presets.enabled then
+        table.insert(options, {
+            title = 'Vehicle Presets',
+            description = 'Save and load vehicle configurations',
+            icon = 'bookmark',
+            onSelect = function()
+                OpenPresetMenu()
+            end
+        })
+    end
 
     table.insert(options, {
         title = 'Save Configuration',
@@ -451,6 +475,7 @@ function OpenLiveryMenu(page)
                     },
                     onSelect = function()
                         SetVehicleLivery(vehicle, liveryIndex)
+                        SaveLiveryToMemory(vehicle) -- v2.1.0+ livery memory
                         lib.notify({
                             title = 'Livery Applied',
                             description = 'Applied Livery ' .. liveryIndex,
@@ -477,6 +502,7 @@ function OpenLiveryMenu(page)
                     icon = isActive and 'check-circle' or 'circle',
                     onSelect = function()
                         SetVehicleMod(vehicle, 48, modIndex, false)
+                        SaveLiveryToMemory(vehicle) -- v2.1.0+ livery memory
                         lib.notify({
                             title = 'Livery Applied',
                             description = 'Applied ' .. modName,
@@ -811,6 +837,7 @@ function FilteredLiveryMenu(searchTerm)
                     },
                     onSelect = function()
                         SetVehicleLivery(vehicle, i)
+                        SaveLiveryToMemory(vehicle) -- v2.1.0+ livery memory
                         lib.notify({
                             title = 'Livery Applied',
                             description = 'Applied ' .. liveryName .. '.',
@@ -832,10 +859,10 @@ function FilteredLiveryMenu(searchTerm)
     if numMods > 0 then
         for i = -1, numMods - 1 do
             local modName = i == -1 and "Default" or "Style " .. (i + 1)
-            
+
             if string.find(modName:lower(), searchTerm) then
                 local isActive = (currentMod == i)
-                
+
                 table.insert(options, {
                     title = modName,
                     description = 'Apply ' .. modName,
@@ -844,6 +871,7 @@ function FilteredLiveryMenu(searchTerm)
                     },
                     onSelect = function()
                         SetVehicleMod(vehicle, 48, i, false)
+                        SaveLiveryToMemory(vehicle) -- v2.1.0+ livery memory
                         lib.notify({
                             title = 'Livery Applied',
                             description = 'Applied ' .. modName .. '.',
@@ -2832,3 +2860,477 @@ function FullRepairVehicle()
         TriggerEvent('vehiclemods:client:openVehicleModMenu')
     end
 end
+
+-----------------------------------------------------------
+-- FIELD REPAIR SYSTEM (v2.1.0+)
+-- Allows emergency repairs anywhere with toolkit
+-----------------------------------------------------------
+local pendingFieldRepair = nil
+
+-- Request field repair from server
+function RequestFieldRepair()
+    local playerPed = PlayerPedId()
+    local vehicle = GetVehiclePedIsIn(playerPed, false)
+
+    if vehicle == 0 then
+        lib.notify({
+            title = 'Error',
+            description = 'You must be in a vehicle',
+            type = 'error',
+            duration = 3000
+        })
+        return
+    end
+
+    -- Check engine health
+    local engineHealth = GetVehicleEngineHealth(vehicle)
+    if engineHealth > 350.0 then
+        lib.notify({
+            title = 'Field Repair',
+            description = 'Engine is functional. Field repair not needed.',
+            type = 'info',
+            duration = 4000
+        })
+        return
+    end
+
+    -- Request validation from server
+    pendingFieldRepair = vehicle
+    TriggerServerEvent('vehiclemods:server:requestFieldRepair')
+end
+
+-- Handle field repair result from server
+RegisterNetEvent('vehiclemods:client:fieldRepairResult')
+AddEventHandler('vehiclemods:client:fieldRepairResult', function(approved, errorMsg, maxRepair, repairTime)
+    if not approved then
+        lib.notify({
+            title = 'Field Repair Denied',
+            description = errorMsg or 'Unable to perform field repair',
+            type = 'error',
+            duration = 5000
+        })
+        pendingFieldRepair = nil
+        return
+    end
+
+    local vehicle = pendingFieldRepair
+    pendingFieldRepair = nil
+
+    if not vehicle or not DoesEntityExist(vehicle) then
+        lib.notify({
+            title = 'Error',
+            description = 'Vehicle no longer exists',
+            type = 'error',
+            duration = 3000
+        })
+        return
+    end
+
+    -- Perform field repair
+    local playerPed = PlayerPedId()
+    local wasDriver = GetPedInVehicleSeat(vehicle, -1) == playerPed
+
+    -- Exit vehicle
+    TaskLeaveVehicle(playerPed, vehicle, 0)
+    Wait(2000)
+
+    lib.notify({
+        title = 'Field Repair',
+        description = 'Using repair kit... Stand by.',
+        type = 'info',
+        duration = 3000
+    })
+
+    -- Single progress bar for field repair
+    local success = lib.progressBar({
+        duration = repairTime or 15000,
+        label = 'Performing field repair...',
+        useWhileDead = false,
+        canCancel = true,
+        disable = { move = true, combat = true },
+        anim = {
+            dict = 'mini@repair',
+            clip = 'fixing_a_ped'
+        }
+    })
+
+    if success then
+        -- Apply limited repair
+        SetVehicleEngineHealth(vehicle, maxRepair or 350.0)
+        SetVehicleUndriveable(vehicle, false)
+        SetVehicleEngineOn(vehicle, true, true, false)
+
+        -- Fix flat tires only
+        for i = 0, 5 do
+            if IsVehicleTyreBurst(vehicle, i, true) then
+                SetVehicleTyreFixed(vehicle, i)
+            end
+        end
+
+        -- Reduced performance (field repair limitation)
+        SetVehicleEnginePowerMultiplier(vehicle, 0.5)
+        SetVehicleEngineTorqueMultiplier(vehicle, 0.5)
+
+        Wait(500)
+        TaskWarpPedIntoVehicle(playerPed, vehicle, wasDriver and -1 or 0)
+
+        PlaySoundFrontend(-1, "PICK_UP_WEAPON", "HUD_FRONTEND_CUSTOM_SOUNDSET", true)
+
+        lib.notify({
+            title = 'Field Repair Complete',
+            description = ('Engine at %d%%. Reduced power. Seek full repair.'):format(math.floor(maxRepair / 10)),
+            type = 'success',
+            duration = 6000
+        })
+    else
+        lib.notify({
+            title = 'Repair Cancelled',
+            description = 'Field repair interrupted',
+            type = 'error',
+            duration = 3000
+        })
+        TaskWarpPedIntoVehicle(playerPed, vehicle, wasDriver and -1 or 0)
+    end
+end)
+
+-----------------------------------------------------------
+-- PRESET SYSTEM (v2.1.0+)
+-- Save and load vehicle configuration presets
+-----------------------------------------------------------
+local cachedPresets = {}
+
+-- Get current vehicle configuration
+local function GetVehicleConfiguration(vehicle)
+    if not vehicle or vehicle == 0 then return nil end
+
+    SetVehicleModKit(vehicle, 0)
+
+    local config = {
+        livery = GetVehicleLivery(vehicle),
+        liveryMod = GetVehicleMod(vehicle, 48),
+        extras = {},
+        colors = {
+            primary = {GetVehicleColours(vehicle)},
+            extra = {GetVehicleExtraColours(vehicle)}
+        },
+        mods = {}
+    }
+
+    -- Get extras state
+    for i = 0, 20 do
+        if DoesExtraExist(vehicle, i) then
+            config.extras[i] = IsVehicleExtraTurnedOn(vehicle, i)
+        end
+    end
+
+    -- Get performance mods
+    for i = 0, 16 do
+        config.mods[i] = GetVehicleMod(vehicle, i)
+    end
+
+    return config
+end
+
+-- Apply vehicle configuration
+local function ApplyVehicleConfiguration(vehicle, config)
+    if not vehicle or vehicle == 0 or not config then return end
+
+    SetVehicleModKit(vehicle, 0)
+
+    -- Apply livery
+    if config.livery and config.livery >= 0 then
+        SetVehicleLivery(vehicle, config.livery)
+    end
+    if config.liveryMod and config.liveryMod >= 0 then
+        SetVehicleMod(vehicle, 48, config.liveryMod, false)
+    end
+
+    -- Apply extras
+    if config.extras then
+        for i, state in pairs(config.extras) do
+            if DoesExtraExist(vehicle, tonumber(i)) then
+                SetVehicleExtra(vehicle, tonumber(i), not state)
+            end
+        end
+    end
+
+    -- Apply colors
+    if config.colors then
+        if config.colors.primary then
+            SetVehicleColours(vehicle, config.colors.primary[1], config.colors.primary[2])
+        end
+        if config.colors.extra then
+            SetVehicleExtraColours(vehicle, config.colors.extra[1], config.colors.extra[2])
+        end
+    end
+
+    -- Apply mods
+    if config.mods then
+        for modType, modIndex in pairs(config.mods) do
+            if modIndex >= 0 then
+                SetVehicleMod(vehicle, tonumber(modType), modIndex, false)
+            end
+        end
+    end
+end
+
+-- Open preset menu
+function OpenPresetMenu()
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    if vehicle == 0 then
+        lib.notify({
+            title = 'Error',
+            description = 'You must be in a vehicle',
+            type = 'error',
+            duration = 3000
+        })
+        return
+    end
+
+    local vehicleModel = GetDisplayNameFromVehicleModel(GetEntityModel(vehicle))
+
+    -- Request presets from server
+    TriggerServerEvent('vehiclemods:server:loadPresets', vehicleModel)
+
+    -- Show loading
+    lib.notify({
+        title = 'Loading Presets',
+        description = 'Fetching saved configurations...',
+        type = 'info',
+        duration = 2000
+    })
+end
+
+-- Handle received presets
+RegisterNetEvent('vehiclemods:client:receivePresets')
+AddEventHandler('vehiclemods:client:receivePresets', function(presets)
+    cachedPresets = presets or {}
+
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    if vehicle == 0 then return end
+
+    local vehicleModel = GetDisplayNameFromVehicleModel(GetEntityModel(vehicle))
+    local options = {}
+
+    -- Save new preset option
+    table.insert(options, {
+        title = 'Save New Preset',
+        description = 'Save current configuration as a preset',
+        icon = 'floppy-disk',
+        onSelect = function()
+            local input = lib.inputDialog('Save Preset', {
+                { type = 'input', label = 'Preset Name', required = true, max = 50 },
+                { type = 'checkbox', label = 'Share with Job (Fleet Preset)' }
+            })
+
+            if input then
+                local config = GetVehicleConfiguration(vehicle)
+                TriggerServerEvent('vehiclemods:server:savePreset', input[1], vehicleModel, config, input[2])
+            end
+        end
+    })
+
+    -- List existing presets
+    if #cachedPresets > 0 then
+        table.insert(options, {
+            title = '─── Saved Presets ───',
+            disabled = true
+        })
+
+        for _, preset in ipairs(cachedPresets) do
+            local icon = preset.isJobPreset and 'users' or 'user'
+            local suffix = preset.isJobPreset and ' [Fleet]' or ''
+
+            table.insert(options, {
+                title = preset.name .. suffix,
+                description = preset.isOwner and 'Click to apply, right-click to delete' or 'Click to apply',
+                icon = icon,
+                onSelect = function()
+                    ApplyVehicleConfiguration(vehicle, preset.data)
+                    lib.notify({
+                        title = 'Preset Applied',
+                        description = ('Applied "%s"'):format(preset.name),
+                        type = 'success',
+                        duration = 3000
+                    })
+                end,
+                menu = preset.isOwner and 'preset_delete_' .. preset.name or nil
+            })
+
+            -- Create delete submenu for owned presets
+            if preset.isOwner then
+                lib.registerContext({
+                    id = 'preset_delete_' .. preset.name,
+                    title = 'Delete ' .. preset.name .. '?',
+                    menu = 'PresetMenu',
+                    options = {
+                        {
+                            title = 'Confirm Delete',
+                            description = 'This cannot be undone',
+                            icon = 'trash',
+                            onSelect = function()
+                                TriggerServerEvent('vehiclemods:server:deletePreset', preset.name, vehicleModel)
+                                Wait(500)
+                                OpenPresetMenu()
+                            end
+                        },
+                        {
+                            title = 'Cancel',
+                            icon = 'xmark',
+                            onSelect = function()
+                                lib.showContext('PresetMenu')
+                            end
+                        }
+                    }
+                })
+            end
+        end
+    else
+        table.insert(options, {
+            title = 'No Presets Saved',
+            description = 'Save your first preset using the option above',
+            icon = 'circle-info',
+            disabled = true
+        })
+    end
+
+    -- Back button
+    table.insert(options, {
+        title = 'Back',
+        icon = 'arrow-left',
+        onSelect = function()
+            TriggerEvent('vehiclemods:client:openVehicleModMenu')
+        end
+    })
+
+    lib.registerContext({
+        id = 'PresetMenu',
+        title = vehicleModel .. ' Presets',
+        options = options
+    })
+    lib.showContext('PresetMenu')
+end)
+
+-----------------------------------------------------------
+-- LIVERY MEMORY SYSTEM (v2.1.0+)
+-- Auto-apply last used livery when entering vehicles
+-----------------------------------------------------------
+local lastVehicle = 0
+local appliedMemoryThisSession = {}
+
+-- Save current livery to memory
+function SaveLiveryToMemory(vehicle)
+    if not Config.AutoApplyLivery or not Config.AutoApplyLivery.enabled then return end
+    if not vehicle or vehicle == 0 then return end
+
+    local vehicleModel = GetDisplayNameFromVehicleModel(GetEntityModel(vehicle)):lower()
+    local liveryIndex = GetVehicleLivery(vehicle)
+    local liveryMod = GetVehicleMod(vehicle, 48)
+
+    -- Get extras state if configured
+    local extras = nil
+    if Config.AutoApplyLivery.rememberExtras then
+        extras = {}
+        for i = 0, 20 do
+            if DoesExtraExist(vehicle, i) then
+                extras[tostring(i)] = IsVehicleExtraTurnedOn(vehicle, i)
+            end
+        end
+    end
+
+    -- Get custom livery if active
+    local netId = NetworkGetNetworkIdFromEntity(vehicle)
+    local customLivery = ActiveCustomLiveries[netId]
+
+    TriggerServerEvent('vehiclemods:server:saveLiveryMemory',
+        vehicleModel, liveryIndex, liveryMod, customLivery, extras)
+end
+
+-- Handle livery memory from server
+RegisterNetEvent('vehiclemods:client:applyLiveryMemory')
+AddEventHandler('vehiclemods:client:applyLiveryMemory', function(vehicleModel, memory)
+    if not Config.AutoApplyLivery or not Config.AutoApplyLivery.enabled then return end
+
+    local playerPed = PlayerPedId()
+    local vehicle = GetVehiclePedIsIn(playerPed, false)
+
+    if vehicle == 0 then return end
+
+    local currentModel = GetDisplayNameFromVehicleModel(GetEntityModel(vehicle)):lower()
+    if currentModel ~= vehicleModel:lower() then return end
+
+    -- Check if already applied this session
+    local netId = NetworkGetNetworkIdFromEntity(vehicle)
+    if appliedMemoryThisSession[netId] then return end
+    appliedMemoryThisSession[netId] = true
+
+    SetVehicleModKit(vehicle, 0)
+
+    -- Apply remembered livery
+    if memory.liveryIndex and memory.liveryIndex >= 0 then
+        SetVehicleLivery(vehicle, memory.liveryIndex)
+    end
+    if memory.liveryMod and memory.liveryMod >= 0 then
+        SetVehicleMod(vehicle, 48, memory.liveryMod, false)
+    end
+
+    -- Apply custom livery if remembered
+    if memory.customLivery then
+        TriggerEvent('vehiclemods:client:setCustomLivery',
+            netId, currentModel, memory.customLivery)
+    end
+
+    -- Apply extras
+    if memory.extras then
+        for i, state in pairs(memory.extras) do
+            if DoesExtraExist(vehicle, tonumber(i)) then
+                SetVehicleExtra(vehicle, tonumber(i), not state)
+            end
+        end
+    end
+
+    if Config.AutoApplyLivery.notifyOnApply then
+        lib.notify({
+            title = 'Livery Applied',
+            description = 'Previous configuration restored',
+            type = 'success',
+            duration = 2500
+        })
+    end
+
+    if Config.Debug then
+        print(("^2[LIVERY-MEMORY]:^0 Applied saved livery for %s"):format(vehicleModel))
+    end
+end)
+
+-- Monitor vehicle entry for auto-apply
+CreateThread(function()
+    while true do
+        Wait(1000)
+
+        if Config.AutoApplyLivery and Config.AutoApplyLivery.enabled then
+            local playerPed = PlayerPedId()
+            local vehicle = GetVehiclePedIsIn(playerPed, false)
+
+            -- Entered a new vehicle
+            if vehicle ~= 0 and vehicle ~= lastVehicle then
+                lastVehicle = vehicle
+
+                if Config.AutoApplyLivery.applyOnEnter or Config.AutoApplyLivery.applyOnSpawn then
+                    local vehicleModel = GetDisplayNameFromVehicleModel(GetEntityModel(vehicle))
+                    TriggerServerEvent('vehiclemods:server:loadLiveryMemory', vehicleModel)
+                end
+            elseif vehicle == 0 then
+                lastVehicle = 0
+            end
+        end
+    end
+end)
+
+-- Clean up session tracking periodically
+CreateThread(function()
+    while true do
+        Wait(300000) -- Every 5 minutes
+        appliedMemoryThisSession = {}
+    end
+end)
