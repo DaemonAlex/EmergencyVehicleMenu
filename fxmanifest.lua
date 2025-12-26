@@ -4,7 +4,7 @@ game 'gta5'
 name 'DSRP Emergency Vehicle Menu'
 description 'Emergency vehicle modification system with QBox framework integration, job-based access control, and custom livery support. Adapted for DelPerro Sands RP.'
 author 'DaemonAlex (Adapted for DSRP by DelPerro Sands RP)'
-version '2.1.0-DSRP'
+version '2.1.1-DSRP'
 
 shared_scripts {
     '@ox_lib/init.lua',

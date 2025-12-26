@@ -466,8 +466,10 @@ function OpenLiveryMenu(page)
             if i < numLiveries then
                 local isActive = (currentLivery == i)
                 local liveryIndex = i
+                -- Use enhanced livery name with label lookup (v2.1.1+)
+                local liveryName = GetEnhancedLiveryName and GetEnhancedLiveryName(vehicle, i) or ('Livery %d'):format(i)
                 table.insert(options, {
-                    title = ('Livery %d'):format(i),
+                    title = liveryName,
                     description = isActive and 'Currently Active' or 'Click to apply',
                     icon = isActive and 'check-circle' or 'circle',
                     metadata = {
@@ -478,7 +480,7 @@ function OpenLiveryMenu(page)
                         SaveLiveryToMemory(vehicle) -- v2.1.0+ livery memory
                         lib.notify({
                             title = 'Livery Applied',
-                            description = 'Applied Livery ' .. liveryIndex,
+                            description = 'Applied ' .. liveryName,
                             type = 'success',
                             duration = 3000
                         })
@@ -3334,3 +3336,257 @@ CreateThread(function()
         appliedMemoryThisSession = {}
     end
 end)
+
+-----------------------------------------------------------
+-- DYNAMIC MARKER SYSTEM (v2.1.1+)
+-- Distance-based opacity for premium marker experience
+-----------------------------------------------------------
+CreateThread(function()
+    while true do
+        local cfg = Config.DynamicMarkers
+        if not cfg or not cfg.enabled then
+            Wait(5000) -- Check periodically if enabled
+            goto continue
+        end
+
+        local playerPed = PlayerPedId()
+        local playerCoords = GetEntityCoords(playerPed)
+        local sleep = 500 -- Default sleep when no markers nearby
+
+        for _, zone in ipairs(Config.ModificationZones) do
+            local distance = #(playerCoords - zone.coords)
+
+            -- Only draw if within fade start distance
+            if distance <= cfg.fadeStartDistance then
+                sleep = 0 -- Need to draw every frame
+
+                -- Calculate opacity based on distance
+                local alpha = 0
+                if distance <= cfg.fadeEndDistance then
+                    alpha = 255 -- Full opacity
+                else
+                    -- Linear interpolation between fadeEnd and fadeStart
+                    local fadeRange = cfg.fadeStartDistance - cfg.fadeEndDistance
+                    local fadeProgress = (cfg.fadeStartDistance - distance) / fadeRange
+                    alpha = math.floor(fadeProgress * 255)
+                end
+
+                -- Get zone-specific color
+                local colors = cfg.colors[zone.type] or cfg.colors.default
+                local r, g, b, baseAlpha = colors[1], colors[2], colors[3], colors[4]
+
+                -- Apply calculated alpha (scaled by base alpha)
+                local finalAlpha = math.floor((alpha / 255) * (baseAlpha or 200))
+
+                -- Draw the marker
+                DrawMarker(
+                    cfg.markerType,
+                    zone.coords.x, zone.coords.y, zone.coords.z - 0.5,
+                    0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0,
+                    cfg.size.x, cfg.size.y, cfg.size.z,
+                    r, g, b, finalAlpha,
+                    cfg.bobUpDown, false, 2, cfg.rotate, nil, nil, false
+                )
+            end
+        end
+
+        Wait(sleep)
+        ::continue::
+    end
+end)
+
+-----------------------------------------------------------
+-- LIVERY LABEL SYSTEM (v2.1.1+)
+-- Get human-readable livery names when available
+-----------------------------------------------------------
+local liveryLabelCache = {}
+
+function GetLiveryLabel(vehicle, liveryIndex)
+    local vehicleModel = GetEntityModel(vehicle)
+    local modelName = GetDisplayNameFromVehicleModel(vehicleModel):lower()
+    local cacheKey = modelName .. "_" .. liveryIndex
+
+    -- Check cache first
+    if liveryLabelCache[cacheKey] then
+        return liveryLabelCache[cacheKey]
+    end
+
+    -- Try to get livery name from game
+    -- Format: VEHICLE_MODEL_LIVERY_INDEX (e.g., POLICE_LIVERY_1)
+    local attempts = {
+        ("%s_LIVERY_%d"):format(modelName:upper(), liveryIndex),
+        ("%s_LIV%d"):format(modelName:upper(), liveryIndex),
+        ("LIVERY_%s_%d"):format(modelName:upper(), liveryIndex)
+    }
+
+    for _, labelKey in ipairs(attempts) do
+        local label = GetLabelText(labelKey)
+        if label and label ~= "NULL" and label ~= labelKey then
+            liveryLabelCache[cacheKey] = label
+            return label
+        end
+    end
+
+    -- Fallback: Check if this is a known emergency vehicle livery pattern
+    local emergencyPatterns = {
+        [0] = "Standard",
+        [1] = "LSPD",
+        [2] = "LSSD/BCSO",
+        [3] = "Highway Patrol",
+        [4] = "Unmarked",
+        [5] = "Slicktop",
+        [6] = "K9 Unit",
+        [7] = "Traffic",
+        [8] = "Supervisor"
+    }
+
+    -- Check if vehicle is emergency class
+    local vehicleClass = GetVehicleClass(vehicle)
+    if vehicleClass == 18 then -- Emergency vehicle class
+        local pattern = emergencyPatterns[liveryIndex]
+        if pattern then
+            liveryLabelCache[cacheKey] = pattern
+            return pattern
+        end
+    end
+
+    -- Final fallback
+    local fallback = "Livery " .. liveryIndex
+    liveryLabelCache[cacheKey] = fallback
+    return fallback
+end
+
+-- Enhanced livery name for search functionality
+function GetEnhancedLiveryName(vehicle, liveryIndex)
+    local label = GetLiveryLabel(vehicle, liveryIndex)
+    -- Include index for search: "K9 Unit (6)" or "Livery 3"
+    if label:match("^Livery %d") then
+        return label
+    else
+        return ("%s (#%d)"):format(label, liveryIndex)
+    end
+end
+
+-----------------------------------------------------------
+-- REPAIR COST SYSTEM (v2.1.1+)
+-- Integration with server economy
+-----------------------------------------------------------
+local currentZoneType = nil -- Track current zone for context
+
+function GetRepairCost(repairType, vehicle)
+    local cfg = Config.RepairCosts
+    if not cfg or not cfg.enabled then
+        return 0, true -- Free if disabled
+    end
+
+    -- Get base cost
+    local baseCost = 0
+    if repairType == 'full' then
+        baseCost = cfg.fullRepairCost
+    elseif repairType == 'emergency' then
+        baseCost = cfg.emergencyRepairCost
+    elseif repairType == 'field' then
+        baseCost = cfg.fieldRepairCost
+    end
+
+    -- Scale by damage if enabled
+    if cfg.scaleCostByDamage and vehicle and vehicle ~= 0 then
+        local damage = GetVehicleDamageReport(vehicle)
+        if damage then
+            -- Lower condition = higher cost
+            local damagePercent = (100 - damage.overallCondition) / 100
+            local multiplier = 1 + (damagePercent * (cfg.maxCostMultiplier - 1))
+            baseCost = math.floor(baseCost * multiplier)
+        end
+    end
+
+    return baseCost, false
+end
+
+-- Request payment from server
+function RequestRepairPayment(repairType, cost, callback)
+    if cost <= 0 then
+        callback(true)
+        return
+    end
+
+    TriggerServerEvent('vehiclemods:server:chargeRepair', repairType, cost)
+
+    -- Wait for response
+    local responded = false
+    local success = false
+
+    RegisterNetEvent('vehiclemods:client:repairPaymentResult')
+    AddEventHandler('vehiclemods:client:repairPaymentResult', function(result, message)
+        responded = true
+        success = result
+        if not result then
+            lib.notify({
+                title = 'Payment Failed',
+                description = message or 'Insufficient funds',
+                type = 'error',
+                duration = 4000
+            })
+        end
+    end)
+
+    -- Timeout after 5 seconds
+    SetTimeout(5000, function()
+        if not responded then
+            callback(false)
+        else
+            callback(success)
+        end
+    end)
+end
+
+-----------------------------------------------------------
+-- JOB-SPECIFIC SUB-MENUS (v2.1.1+)
+-- Zone-aware menu customization
+-----------------------------------------------------------
+function GetCurrentZoneDefaults()
+    if not Config.JobDefaults or not Config.JobDefaults.enabled then
+        return nil
+    end
+
+    local playerCoords = GetEntityCoords(PlayerPedId())
+
+    for _, zone in ipairs(Config.ModificationZones) do
+        local distance = #(playerCoords - zone.coords)
+        if distance <= zone.radius then
+            currentZoneType = zone.type
+            return Config.JobDefaults[zone.type]
+        end
+    end
+
+    currentZoneType = nil
+    return nil
+end
+
+-- Get priority extras for current zone
+function GetPriorityExtras()
+    local defaults = GetCurrentZoneDefaults()
+    if defaults and defaults.priorityExtras then
+        return defaults.priorityExtras
+    end
+    return {}
+end
+
+-- Check if neon should be shown for current zone
+function ShouldShowNeon()
+    local defaults = GetCurrentZoneDefaults()
+    if defaults then
+        return defaults.showNeon ~= false
+    end
+    return true
+end
+
+-- Get suggested colors for current zone
+function GetZoneSuggestedColors()
+    local defaults = GetCurrentZoneDefaults()
+    if defaults and defaults.defaultColors then
+        return defaults.defaultColors
+    end
+    return nil
+end

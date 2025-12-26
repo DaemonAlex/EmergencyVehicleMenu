@@ -959,3 +959,163 @@ AddEventHandler('playerDropped', function()
     fieldRepairCooldowns[src] = nil
 end)
 
+-----------------------------------------------------------
+-- REPAIR COST SYSTEM (v2.1.1+)
+-- Charge players for repairs based on config
+-----------------------------------------------------------
+
+-- Get player money based on framework
+local function GetPlayerMoney(playerId, moneyType)
+    if currentFramework == 'esx' and frameworkObject then
+        local xPlayer = frameworkObject.GetPlayerFromId(playerId)
+        if xPlayer then
+            if moneyType == 'bank' then
+                return xPlayer.getAccount('bank').money
+            else
+                return xPlayer.getMoney()
+            end
+        end
+    elseif currentFramework == 'qbcore' and frameworkObject then
+        local Player = frameworkObject.Functions.GetPlayer(playerId)
+        if Player then
+            if moneyType == 'bank' then
+                return Player.PlayerData.money.bank
+            else
+                return Player.PlayerData.money.cash
+            end
+        end
+    elseif currentFramework == 'qbox' and frameworkObject then
+        local Player = frameworkObject.GetPlayer(playerId)
+        if Player then
+            if moneyType == 'bank' then
+                return Player.PlayerData.money.bank
+            else
+                return Player.PlayerData.money.cash
+            end
+        end
+    end
+    return 0
+end
+
+-- Remove money from player
+local function RemoveMoney(playerId, amount, moneyType)
+    if currentFramework == 'esx' and frameworkObject then
+        local xPlayer = frameworkObject.GetPlayerFromId(playerId)
+        if xPlayer then
+            if moneyType == 'bank' then
+                xPlayer.removeAccountMoney('bank', amount)
+            else
+                xPlayer.removeMoney(amount)
+            end
+            return true
+        end
+    elseif currentFramework == 'qbcore' and frameworkObject then
+        local Player = frameworkObject.Functions.GetPlayer(playerId)
+        if Player then
+            Player.Functions.RemoveMoney(moneyType, amount, 'vehicle-repair')
+            return true
+        end
+    elseif currentFramework == 'qbox' and frameworkObject then
+        local Player = frameworkObject.GetPlayer(playerId)
+        if Player then
+            Player.Functions.RemoveMoney(moneyType, amount, 'vehicle-repair')
+            return true
+        end
+    end
+    return false
+end
+
+-- Check if player's job gets free/discounted repairs
+local function GetRepairDiscount(playerId)
+    local cfg = Config.RepairCosts
+    if not cfg then return 0 end
+
+    local playerJob = GetPlayerJob(playerId)
+    if not playerJob then return 0 end
+
+    -- Check free jobs
+    if cfg.freeForJobs then
+        for _, job in ipairs(cfg.freeForJobs) do
+            if playerJob == job then
+                return 1.0 -- 100% discount (free)
+            end
+        end
+    end
+
+    -- Check discount jobs
+    if cfg.discountJobs then
+        for _, discountInfo in ipairs(cfg.discountJobs) do
+            if playerJob == discountInfo.job then
+                return discountInfo.discount or 0
+            end
+        end
+    end
+
+    return 0
+end
+
+-- Handle repair payment request
+RegisterNetEvent('vehiclemods:server:chargeRepair')
+AddEventHandler('vehiclemods:server:chargeRepair', function(repairType, cost)
+    local src = source
+    local cfg = Config.RepairCosts
+
+    -- If repair costs disabled, allow free
+    if not cfg or not cfg.enabled then
+        TriggerClientEvent('vehiclemods:client:repairPaymentResult', src, true)
+        return
+    end
+
+    -- Apply job discount
+    local discount = GetRepairDiscount(src)
+    local finalCost = math.floor(cost * (1 - discount))
+
+    if finalCost <= 0 then
+        TriggerClientEvent('vehiclemods:client:repairPaymentResult', src, true)
+        return
+    end
+
+    -- Try to charge from configured source
+    local chargeFrom = cfg.chargeFrom or 'bank'
+    local success = false
+    local chargedFrom = nil
+
+    if chargeFrom == 'both' then
+        -- Try bank first, then cash
+        local bankMoney = GetPlayerMoney(src, 'bank')
+        if bankMoney >= finalCost then
+            success = RemoveMoney(src, finalCost, 'bank')
+            chargedFrom = 'bank'
+        else
+            local cashMoney = GetPlayerMoney(src, 'cash')
+            if cashMoney >= finalCost then
+                success = RemoveMoney(src, finalCost, 'cash')
+                chargedFrom = 'cash'
+            end
+        end
+    else
+        local money = GetPlayerMoney(src, chargeFrom)
+        if money >= finalCost then
+            success = RemoveMoney(src, finalCost, chargeFrom)
+            chargedFrom = chargeFrom
+        end
+    end
+
+    if success then
+        TriggerClientEvent('vehiclemods:client:repairPaymentResult', src, true)
+        TriggerClientEvent('ox_lib:notify', src, {
+            title = 'Repair Payment',
+            description = ('$%d charged from %s'):format(finalCost, chargedFrom),
+            type = 'success',
+            duration = 3000
+        })
+
+        if Config.Debug then
+            print(("^2[REPAIR-COST]:^0 Player %s charged $%d for %s repair"):format(src, finalCost, repairType))
+        end
+    else
+        TriggerClientEvent('vehiclemods:client:repairPaymentResult', src, false,
+            ('Insufficient funds. Need $%d'):format(finalCost))
+    end
+end)
+

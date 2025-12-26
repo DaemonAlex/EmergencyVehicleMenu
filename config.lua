@@ -264,6 +264,81 @@ Config.ShowMarkers = false      -- Show ground markers at zones (disabled for in
 Config.EmergencyVehiclesOnly = false  -- Allow any vehicle (DISABLED for admin testing)
 
 -----------------------------------------------------------
+-- DYNAMIC MARKER SYSTEM (v2.1.1+)
+-- Markers with distance-based opacity for premium feel
+-----------------------------------------------------------
+Config.DynamicMarkers = {
+    enabled = false,                   -- Enable dynamic markers (overrides ShowMarkers)
+    markerType = 1,                    -- Marker type (1 = cylinder, 27 = arrow)
+    size = vector3(3.0, 3.0, 1.0),     -- Marker size
+    fadeStartDistance = 30.0,          -- Distance where marker starts appearing
+    fadeEndDistance = 5.0,             -- Distance where marker is fully visible
+    bobUpDown = false,                 -- Marker bobs up and down
+    rotate = false,                    -- Marker rotates
+    colors = {                         -- Zone-specific colors (RGBA)
+        police = {0, 100, 255, 200},   -- Blue
+        fire = {255, 50, 0, 200},      -- Red
+        medical = {50, 255, 50, 200},  -- Green
+        default = {255, 255, 255, 200} -- White
+    }
+}
+
+-----------------------------------------------------------
+-- REPAIR COST SYSTEM (v2.1.1+)
+-- Charge for repairs to integrate with server economy
+-----------------------------------------------------------
+Config.RepairCosts = {
+    enabled = false,                   -- Enable repair costs
+    chargeFrom = 'bank',               -- 'bank', 'cash', or 'both' (tries bank first)
+    fullRepairCost = 500,              -- Base cost for full repair
+    emergencyRepairCost = 150,         -- Cost for emergency repair
+    fieldRepairCost = 250,             -- Cost for field repair (item still required)
+    scaleCostByDamage = true,          -- More damage = higher cost
+    maxCostMultiplier = 3.0,           -- Max multiplier for heavily damaged vehicles
+    freeForJobs = {                    -- Jobs that get free repairs
+        -- 'mechanic'                  -- Uncomment to enable
+    },
+    discountJobs = {                   -- Jobs that get discounted repairs
+        -- {job = 'police', discount = 0.5}  -- 50% off
+    }
+}
+
+-----------------------------------------------------------
+-- JOB-SPECIFIC DEFAULTS (v2.1.1+)
+-- Zone-aware menu defaults for better UX
+-----------------------------------------------------------
+Config.JobDefaults = {
+    enabled = true,                    -- Enable zone-specific defaults
+    police = {
+        defaultColors = {              -- Default vehicle colors
+            primary = 0,               -- Black
+            secondary = 0              -- Black
+        },
+        suggestedNeonColor = {0, 0, 255},  -- Blue neon
+        priorityExtras = {1, 2, 3},    -- Lightbar, pushbar, spots
+        showNeon = false               -- Police usually don't want neon
+    },
+    fire = {
+        defaultColors = {
+            primary = 27,              -- Red
+            secondary = 0              -- Black
+        },
+        suggestedNeonColor = {255, 0, 0},  -- Red neon
+        priorityExtras = {1, 2},       -- Lightbar, equipment
+        showNeon = false
+    },
+    medical = {
+        defaultColors = {
+            primary = 111,             -- White
+            secondary = 27             -- Red accent
+        },
+        suggestedNeonColor = {255, 255, 255},  -- White neon
+        priorityExtras = {1, 3},       -- Lightbar, medical equipment
+        showNeon = false
+    }
+}
+
+-----------------------------------------------------------
 -- FIELD REPAIR SYSTEM (v2.1.0+)
 -- Allows emergency repairs outside of stations with requirements
 -----------------------------------------------------------
