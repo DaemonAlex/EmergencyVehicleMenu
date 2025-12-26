@@ -3305,6 +3305,9 @@ AddEventHandler('vehiclemods:client:applyLiveryMemory', function(vehicleModel, m
     end
 end)
 
+-- Track recently spawned vehicles (for jg-garages compatibility)
+local recentlySpawnedVehicles = {}
+
 -- Monitor vehicle entry for auto-apply
 CreateThread(function()
     while true do
@@ -3318,7 +3321,32 @@ CreateThread(function()
             if vehicle ~= 0 and vehicle ~= lastVehicle then
                 lastVehicle = vehicle
 
-                if Config.AutoApplyLivery.applyOnEnter or Config.AutoApplyLivery.applyOnSpawn then
+                -- Check jg-scripts compatibility
+                local jgCompat = Config.Compatibility and Config.Compatibility['jg-scripts']
+                local shouldApply = true
+
+                if jgCompat and jgCompat.enabled and jgCompat.respectGarageLivery then
+                    local netId = NetworkGetNetworkIdFromEntity(vehicle)
+                    local spawnTime = recentlySpawnedVehicles[netId]
+
+                    if spawnTime then
+                        local elapsed = GetGameTimer() - spawnTime
+                        local gracePeriod = jgCompat.garageSpawnGracePeriod or 5000
+
+                        if elapsed < gracePeriod then
+                            -- Vehicle was recently spawned by garage, skip auto-apply
+                            shouldApply = false
+                            if Config.Debug then
+                                print(("^3[COMPAT]:^0 Skipping livery auto-apply (garage grace period: %dms remaining)"):format(gracePeriod - elapsed))
+                            end
+                        else
+                            -- Grace period expired, clean up
+                            recentlySpawnedVehicles[netId] = nil
+                        end
+                    end
+                end
+
+                if shouldApply and (Config.AutoApplyLivery.applyOnEnter or Config.AutoApplyLivery.applyOnSpawn) then
                     local vehicleModel = GetDisplayNameFromVehicleModel(GetEntityModel(vehicle))
                     TriggerServerEvent('vehiclemods:server:loadLiveryMemory', vehicleModel)
                 end
@@ -3326,6 +3354,35 @@ CreateThread(function()
                 lastVehicle = 0
             end
         end
+    end
+end)
+
+-- Listen for garage vehicle spawns (jg-advancedgarages compatibility)
+-- jg-advancedgarages triggers this when spawning a vehicle
+RegisterNetEvent('jg-advancedgarages:client:vehicleSpawned')
+AddEventHandler('jg-advancedgarages:client:vehicleSpawned', function(vehicle, plate)
+    if not vehicle or not DoesEntityExist(vehicle) then return end
+
+    local jgCompat = Config.Compatibility and Config.Compatibility['jg-scripts']
+    if jgCompat and jgCompat.enabled and jgCompat.respectGarageLivery then
+        local netId = NetworkGetNetworkIdFromEntity(vehicle)
+        recentlySpawnedVehicles[netId] = GetGameTimer()
+
+        if Config.Debug then
+            print(("^2[COMPAT]:^0 jg-garages spawned vehicle (plate: %s), applying grace period"):format(plate or "unknown"))
+        end
+    end
+end)
+
+-- Alternative: Listen for QBCore garage spawns
+RegisterNetEvent('qb-garages:client:vehicleSpawned')
+AddEventHandler('qb-garages:client:vehicleSpawned', function(vehicle)
+    if not vehicle or not DoesEntityExist(vehicle) then return end
+
+    local qbCompat = Config.Compatibility and Config.Compatibility['qb-scripts']
+    if qbCompat and qbCompat.enabled and qbCompat.respectGarageLivery then
+        local netId = NetworkGetNetworkIdFromEntity(vehicle)
+        recentlySpawnedVehicles[netId] = GetGameTimer()
     end
 end)
 

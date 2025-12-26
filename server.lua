@@ -1066,6 +1066,16 @@ AddEventHandler('vehiclemods:server:chargeRepair', function(repairType, cost)
         return
     end
 
+    -- Check jg-scripts compatibility (defer to jg-mechanic for repairs)
+    local jgCompat = Config.Compatibility and Config.Compatibility['jg-scripts']
+    if jgCompat and jgCompat.enabled and jgCompat.deferToMechanicForRepairs then
+        TriggerClientEvent('vehiclemods:client:repairPaymentResult', src, true)
+        if Config.Debug then
+            print(("^2[COMPAT]:^0 Skipping repair charge (jg-mechanic handles economy)"))
+        end
+        return
+    end
+
     -- Apply job discount
     local discount = GetRepairDiscount(src)
     local finalCost = math.floor(cost * (1 - discount))

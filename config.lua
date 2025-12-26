@@ -264,6 +264,33 @@ Config.ShowMarkers = false      -- Show ground markers at zones (disabled for in
 Config.EmergencyVehiclesOnly = false  -- Allow any vehicle (DISABLED for admin testing)
 
 -----------------------------------------------------------
+-- THIRD-PARTY SCRIPT COMPATIBILITY (v2.1.2+)
+-- Settings for integration with other popular scripts
+-----------------------------------------------------------
+Config.Compatibility = {
+    -- jg-mechanic / jg-advancedgarages
+    ['jg-scripts'] = {
+        enabled = true,                     -- Enable jg-scripts compatibility
+        deferToMechanicForRepairs = true,   -- Don't charge for repairs (let jg-mechanic handle economy)
+        respectGarageLivery = true,         -- Don't auto-apply livery if garage just set it
+        garageSpawnGracePeriod = 5000       -- ms to wait after spawn before auto-applying livery
+    },
+
+    -- qb-mechanicjob / qb-garages
+    ['qb-scripts'] = {
+        enabled = false,
+        deferToMechanicForRepairs = true,
+        respectGarageLivery = true
+    },
+
+    -- Generic compatibility for other scripts
+    ['generic'] = {
+        disableRepairCostsIfMechanicJob = true,  -- Free repairs if player is mechanic
+        checkOwnedVehicleBeforeLivery = false    -- Only auto-apply to owned vehicles
+    }
+}
+
+-----------------------------------------------------------
 -- DYNAMIC MARKER SYSTEM (v2.1.1+)
 -- Markers with distance-based opacity for premium feel
 -----------------------------------------------------------
