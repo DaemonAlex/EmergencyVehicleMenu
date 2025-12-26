@@ -49,12 +49,113 @@ CreateThread(function()
                 Config.CleanJobCache()
             end
         end)
-        
+
         if Config.Debug then
             print("^2[AUTO-CONFIG]:^0 Job cache cleanup initialized")
         end
     end
+
+    -- Event-driven job cache invalidation
+    -- Listen for job changes instead of constant polling
+    SetupJobChangeListeners(currentFramework)
 end)
+
+-----------------------------------------------------------
+-- EVENT-DRIVEN JOB CACHE INVALIDATION
+-- Instead of constant polling, we listen for job changes
+-- and invalidate cache only when necessary
+-----------------------------------------------------------
+function InvalidatePlayerJobCache(playerId)
+    if not playerId then return end
+
+    -- Clear all cache entries for this player
+    local keysToRemove = {}
+    for key, _ in pairs(Config.JobCache) do
+        if string.find(key, "^" .. tostring(playerId) .. ":") then
+            table.insert(keysToRemove, key)
+        end
+    end
+
+    for _, key in ipairs(keysToRemove) do
+        Config.JobCache[key] = nil
+        -- Also clear from ox_lib cache if available
+        if lib and lib.cache then
+            lib.cache.set('job_' .. key, nil, 0)
+        end
+    end
+
+    if Config.Debug then
+        print(("^2[JOB-CACHE]:^0 Invalidated cache for player %s (event-driven)"):format(playerId))
+    end
+end
+
+function SetupJobChangeListeners(framework)
+    if framework == 'esx' then
+        -- ESX job change event
+        RegisterNetEvent('esx:setJob')
+        AddEventHandler('esx:setJob', function(job, lastJob)
+            local src = source
+            InvalidatePlayerJobCache(src)
+
+            if Config.Debug then
+                print(("^2[JOB-CACHE]:^0 ESX job change: Player %s | %s -> %s"):format(
+                    src, lastJob and lastJob.name or "none", job.name
+                ))
+            end
+        end)
+        print("^2[JOB-CACHE]:^0 ESX job change listener registered")
+
+    elseif framework == 'qbcore' then
+        -- QBCore job change event
+        RegisterNetEvent('QBCore:Server:OnJobUpdate')
+        AddEventHandler('QBCore:Server:OnJobUpdate', function(source, job)
+            InvalidatePlayerJobCache(source)
+
+            if Config.Debug then
+                print(("^2[JOB-CACHE]:^0 QBCore job change: Player %s | New job: %s"):format(
+                    source, job.name
+                ))
+            end
+        end)
+
+        -- Also listen for player data updates
+        RegisterNetEvent('QBCore:Server:PlayerDataUpdate')
+        AddEventHandler('QBCore:Server:PlayerDataUpdate', function(source, key, value)
+            if key == 'job' then
+                InvalidatePlayerJobCache(source)
+            end
+        end)
+        print("^2[JOB-CACHE]:^0 QBCore job change listeners registered")
+
+    elseif framework == 'qbox' then
+        -- QBox uses similar events to QBCore
+        RegisterNetEvent('QBCore:Server:OnJobUpdate')
+        AddEventHandler('QBCore:Server:OnJobUpdate', function(source, job)
+            InvalidatePlayerJobCache(source)
+
+            if Config.Debug then
+                print(("^2[JOB-CACHE]:^0 QBox job change: Player %s | New job: %s"):format(
+                    source, job.name
+                ))
+            end
+        end)
+
+        -- QBox-specific event
+        RegisterNetEvent('qbx_core:server:onJobUpdate')
+        AddEventHandler('qbx_core:server:onJobUpdate', function(source, job)
+            InvalidatePlayerJobCache(source)
+        end)
+        print("^2[JOB-CACHE]:^0 QBox job change listeners registered")
+    end
+
+    -- Universal: Invalidate cache when player disconnects
+    AddEventHandler('playerDropped', function(reason)
+        local src = source
+        InvalidatePlayerJobCache(src)
+    end)
+
+    print("^2[JOB-CACHE]:^0 Event-driven job cache invalidation active")
+end
 
 -- Initialize database
 local ox_mysql = exports['oxmysql']

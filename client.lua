@@ -138,52 +138,83 @@ end)
 local lastAccessAttempt = {}
 local ACCESS_COOLDOWN = 2000 -- 2 seconds between access attempts per zone
 
+-- Performance-optimized zone checking with dynamic tick rates
+-- Uses tiered sleep similar to FiveM best practices:
+-- >100m: 2000ms (deep sleep), 30-100m: 1000ms, <30m: 500ms, in-zone: 250ms
 CreateThread(function()
     while true do
-        local sleep = 1000
+        local sleep = 2000  -- Default: deep sleep when far from all zones
         local playerPed = PlayerPedId()
-        local playerCoords = GetEntityCoords(playerPed)
         local vehicle = GetVehiclePedIsIn(playerPed, false)
+
+        -- Early exit if not in vehicle - no need to check zones
+        if vehicle == 0 then
+            Wait(sleep)
+            goto continue
+        end
+
+        local playerCoords = GetEntityCoords(playerPed)
         local currentTime = GetGameTimer()
+        local nearestDistance = 999999.0
+        local inAnyZone = false
 
-        if vehicle ~= 0 then
-            for i, zone in ipairs(Config.ModificationZones) do
-                local distance = #(playerCoords - zone.coords)
+        -- Find nearest zone and check if in any zone
+        for i, zone in ipairs(Config.ModificationZones) do
+            local distance = #(playerCoords - zone.coords)
 
-                if distance <= zone.radius then
-                    -- Player entered zone with vehicle - check access with cooldown
-                    if not lastAccessAttempt[i] or (currentTime - lastAccessAttempt[i]) >= ACCESS_COOLDOWN then
-                        lastAccessAttempt[i] = currentTime
+            -- Track nearest zone for dynamic sleep calculation
+            if distance < nearestDistance then
+                nearestDistance = distance
+            end
 
-                        -- Check zone access
-                        local inZone, zoneInfo = Config.IsInModificationZone(playerCoords)
+            -- Check if in this zone
+            if distance <= zone.radius then
+                inAnyZone = true
 
-                        if inZone then
-                            -- Access granted - show success notification and open menu
-                            lib.notify({
-                                title = 'Access Granted',
-                                description = zoneInfo.message,
-                                type = 'success',
-                                duration = 3000
-                            })
-                            TriggerEvent('vehiclemods:client:openVehicleModMenu')
-                        else
-                            -- Access denied - show error notification
-                            lib.notify({
-                                title = 'Access Denied',
-                                description = zoneInfo.message,
-                                type = 'error',
-                                duration = 4000
-                            })
-                        end
+                -- Player entered zone with vehicle - check access with cooldown
+                if not lastAccessAttempt[i] or (currentTime - lastAccessAttempt[i]) >= ACCESS_COOLDOWN then
+                    lastAccessAttempt[i] = currentTime
+
+                    -- Check zone access
+                    local inZone, zoneInfo = Config.IsInModificationZone(playerCoords)
+
+                    if inZone then
+                        -- Access granted - show success notification and open menu
+                        lib.notify({
+                            title = 'Access Granted',
+                            description = zoneInfo.message,
+                            type = 'success',
+                            duration = 3000
+                        })
+                        TriggerEvent('vehiclemods:client:openVehicleModMenu')
+                    else
+                        -- Access denied - show error notification
+                        lib.notify({
+                            title = 'Access Denied',
+                            description = zoneInfo.message,
+                            type = 'error',
+                            duration = 4000
+                        })
                     end
-                    sleep = 500 -- Check more frequently when in zone
-                    break
                 end
+                break  -- Already in a zone, no need to check others
             end
         end
 
+        -- Dynamic sleep based on distance to nearest zone
+        -- Optimized thresholds prevent wasted CPU cycles
+        if inAnyZone then
+            sleep = 250   -- In zone: responsive for menu interaction
+        elseif nearestDistance < 30.0 then
+            sleep = 500   -- Close: approaching zone
+        elseif nearestDistance < 100.0 then
+            sleep = 1000  -- Medium: zone visible on minimap
+        else
+            sleep = 2000  -- Far: deep sleep, conserve resources
+        end
+
         Wait(sleep)
+        ::continue::
     end
 end)
 
@@ -272,7 +303,27 @@ AddEventHandler('vehiclemods:client:openVehicleModMenu', function()
             end
         })
     end
-    
+
+    -- Window controls (roll up/down) - always available for emergency vehicles
+    table.insert(options, {
+        title = 'Window Controls',
+        description = 'Roll windows up or down.',
+        icon = 'window-maximize',
+        onSelect = function()
+            OpenWindowControlsMenu()
+        end
+    })
+
+    -- Seat controls (shuffle positions) - useful for passenger management
+    table.insert(options, {
+        title = 'Seat Controls',
+        description = 'Move between seats or eject passengers.',
+        icon = 'chair',
+        onSelect = function()
+            OpenSeatControlsMenu()
+        end
+    })
+
     -- These options should always be available
     table.insert(options, {
         title = 'Emergency Repair',
@@ -316,7 +367,11 @@ AddEventHandler('vehiclemods:client:openVehicleModMenu', function()
 end)
 
 -- Livery Menu
-function OpenLiveryMenu()
+-- Pagination settings for large livery lists
+local LIVERIES_PER_PAGE = 20  -- Prevents frame drops with 50+ liveries
+
+function OpenLiveryMenu(page)
+    page = page or 1
     local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
 
     if vehicle == 0 then
@@ -336,90 +391,140 @@ function OpenLiveryMenu()
     local numLiveries = GetVehicleLiveryCount(vehicle)
     local currentLivery = GetVehicleLivery(vehicle)
     local numMods = GetNumVehicleMods(vehicle, 48)
-    
-    if (numLiveries > 5 or numMods > 5) then
-        table.insert(options, {
-            title = 'Search Liveries',
-            description = 'Find specific liveries by name or number',
-            onSelect = function()
-                OpenLiverySearchMenu()
-            end
-        })
-    end
-    
-    if numLiveries > 0 then
-        for i = 0, numLiveries - 1 do
-            local isActive = (currentLivery == i)
-            table.insert(options, {
-                title = 'Livery ' .. i,
-                description = 'Apply Livery ' .. i,
-                metadata = {
-                    {label = 'Status', value = isActive and 'Active' or 'Inactive'}
-                },
-                onSelect = function()
-                    SetVehicleLivery(vehicle, i)
-                    lib.notify({
-                        title = 'Livery Applied',
-                        description = 'Applied Livery ' .. i .. '.',
-                        type = 'success',
-                        duration = 5000
-                    })
-                    OpenLiveryMenu()
-                end
-            })
-        end
-    else
-        local currentMod = GetVehicleMod(vehicle, 48)
-        
-        if numMods > 0 then
-            for i = -1, numMods - 1 do
-                local modName = i == -1 and "Default" or "Style " .. (i + 1)
-                local isActive = (currentMod == i)
-                
-                table.insert(options, {
-                    title = modName,
-                    description = 'Apply ' .. modName,
-                    metadata = {
-                        {label = 'Status', value = isActive and 'Active' or 'Inactive'}
-                    },
-                    onSelect = function()
-                        SetVehicleMod(vehicle, 48, i, false)
-                        lib.notify({
-                            title = 'Livery Applied',
-                            description = 'Applied ' .. modName .. '.',
-                            type = 'success',
-                            duration = 5000
-                        })
-                        OpenLiveryMenu()
-                    end
-                })
-            end
-        else
-            table.insert(options, {
-                title = 'No liveries available',
-                description = 'This vehicle has no available liveries.',
-                onSelect = function() end
-            })
-        end
-    end
-    
-    -- Add custom liveries option if available for this vehicle
+
+    -- Determine total liveries (standard or mod-based)
+    local totalLiveries = numLiveries > 0 and numLiveries or (numMods > 0 and numMods + 1 or 0)
+    local totalPages = math.ceil(totalLiveries / LIVERIES_PER_PAGE)
+    local startIndex = (page - 1) * LIVERIES_PER_PAGE
+    local endIndex = math.min(startIndex + LIVERIES_PER_PAGE - 1, totalLiveries - 1)
+
+    -- Add custom liveries option if available (always at top)
     local vehicleModel = GetEntityModel(vehicle)
     local vehicleModelName = GetDisplayNameFromVehicleModel(vehicleModel):lower()
-    
+
     if Config.CustomLiveries and Config.CustomLiveries[vehicleModelName] then
-        table.insert(options, 1, {
+        table.insert(options, {
             title = 'Custom Liveries (YFT)',
             description = 'Browse custom YFT liveries for this vehicle',
+            icon = 'palette',
             onSelect = function()
                 OpenCustomLiveriesMenu()
             end
         })
     end
 
+    -- Search option for large livery lists
+    if totalLiveries > 10 then
+        table.insert(options, {
+            title = 'Search Liveries',
+            description = 'Find specific liveries by name or number',
+            icon = 'magnifying-glass',
+            onSelect = function()
+                OpenLiverySearchMenu()
+            end
+        })
+    end
+
+    -- Pagination header for large lists
+    if totalPages > 1 then
+        table.insert(options, {
+            title = ('Page %d of %d (%d liveries)'):format(page, totalPages, totalLiveries),
+            description = 'Use Previous/Next to navigate pages',
+            icon = 'list-ol',
+            disabled = true
+        })
+    end
+
+    -- Build livery options for current page only (prevents frame drops)
+    if numLiveries > 0 then
+        -- Standard liveries
+        for i = startIndex, endIndex do
+            if i < numLiveries then
+                local isActive = (currentLivery == i)
+                local liveryIndex = i
+                table.insert(options, {
+                    title = ('Livery %d'):format(i),
+                    description = isActive and 'Currently Active' or 'Click to apply',
+                    icon = isActive and 'check-circle' or 'circle',
+                    metadata = {
+                        {label = 'ID', value = tostring(i)}
+                    },
+                    onSelect = function()
+                        SetVehicleLivery(vehicle, liveryIndex)
+                        lib.notify({
+                            title = 'Livery Applied',
+                            description = 'Applied Livery ' .. liveryIndex,
+                            type = 'success',
+                            duration = 3000
+                        })
+                        OpenLiveryMenu(page)
+                    end
+                })
+            end
+        end
+    elseif numMods > 0 then
+        -- Mod-based liveries (index 48)
+        local currentMod = GetVehicleMod(vehicle, 48)
+        for i = startIndex, endIndex do
+            local modIndex = i - 1  -- -1 is default, 0+ are mods
+            if modIndex < numMods then
+                local modName = modIndex == -1 and "Default" or ("Style %d"):format(modIndex + 1)
+                local isActive = (currentMod == modIndex)
+
+                table.insert(options, {
+                    title = modName,
+                    description = isActive and 'Currently Active' or 'Click to apply',
+                    icon = isActive and 'check-circle' or 'circle',
+                    onSelect = function()
+                        SetVehicleMod(vehicle, 48, modIndex, false)
+                        lib.notify({
+                            title = 'Livery Applied',
+                            description = 'Applied ' .. modName,
+                            type = 'success',
+                            duration = 3000
+                        })
+                        OpenLiveryMenu(page)
+                    end
+                })
+            end
+        end
+    else
+        table.insert(options, {
+            title = 'No Liveries Available',
+            description = 'This vehicle has no standard liveries',
+            icon = 'ban',
+            disabled = true
+        })
+    end
+
+    -- Pagination controls
+    if totalPages > 1 then
+        if page > 1 then
+            table.insert(options, {
+                title = '← Previous Page',
+                description = ('Go to page %d'):format(page - 1),
+                icon = 'arrow-left',
+                onSelect = function()
+                    OpenLiveryMenu(page - 1)
+                end
+            })
+        end
+
+        if page < totalPages then
+            table.insert(options, {
+                title = 'Next Page →',
+                description = ('Go to page %d'):format(page + 1),
+                icon = 'arrow-right',
+                onSelect = function()
+                    OpenLiveryMenu(page + 1)
+                end
+            })
+        end
+    end
+
     lib.registerContext({
         id = 'LiveryMenu',
-        title = 'Select Livery',
+        title = totalPages > 1 and ('Liveries (Page %d/%d)'):format(page, totalPages) or 'Select Livery',
         options = options,
         menu = 'VehicleModMenu',
         onBack = function()
@@ -1112,6 +1217,293 @@ function OpenDoorsMenu()
         end
     })
     lib.showContext('DoorsMenu')
+end
+
+-----------------------------------------------------------
+-- WINDOW CONTROLS MENU
+-- Roll windows up/down for emergency vehicle operations
+-----------------------------------------------------------
+function OpenWindowControlsMenu()
+    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+
+    if vehicle == 0 then
+        lib.notify({
+            title = 'Error',
+            description = 'You must be in a vehicle',
+            type = 'error',
+            duration = 3000
+        })
+        return
+    end
+
+    local windows = {
+        { title = 'Driver Window', index = 0 },
+        { title = 'Passenger Window', index = 1 },
+        { title = 'Rear Driver Window', index = 2 },
+        { title = 'Rear Passenger Window', index = 3 }
+    }
+
+    local options = {}
+
+    -- Individual window controls
+    for _, window in ipairs(windows) do
+        local windowIndex = window.index
+        table.insert(options, {
+            title = window.title,
+            description = 'Roll down this window',
+            icon = 'window-maximize',
+            onSelect = function()
+                RollDownWindow(vehicle, windowIndex)
+                lib.notify({
+                    title = 'Window Rolled Down',
+                    description = window.title .. ' rolled down',
+                    type = 'success',
+                    duration = 2000
+                })
+            end
+        })
+    end
+
+    -- All windows controls
+    table.insert(options, {
+        title = 'Roll All Windows Down',
+        description = 'Lower all windows at once',
+        icon = 'arrows-down-to-line',
+        onSelect = function()
+            for _, window in ipairs(windows) do
+                RollDownWindow(vehicle, window.index)
+            end
+            lib.notify({
+                title = 'All Windows Down',
+                description = 'All windows rolled down',
+                type = 'success',
+                duration = 2000
+            })
+            OpenWindowControlsMenu()
+        end
+    })
+
+    table.insert(options, {
+        title = 'Roll All Windows Up',
+        description = 'Raise all windows at once',
+        icon = 'arrows-up-to-line',
+        onSelect = function()
+            for _, window in ipairs(windows) do
+                RollUpWindow(vehicle, window.index)
+            end
+            lib.notify({
+                title = 'All Windows Up',
+                description = 'All windows rolled up',
+                type = 'success',
+                duration = 2000
+            })
+            OpenWindowControlsMenu()
+        end
+    })
+
+    -- Smash window option (for emergency extraction)
+    table.insert(options, {
+        title = 'Smash Window',
+        description = 'Break a window (for emergency extraction)',
+        icon = 'hammer',
+        onSelect = function()
+            local smashOptions = {}
+            for _, window in ipairs(windows) do
+                local windowIndex = window.index
+                table.insert(smashOptions, {
+                    title = window.title,
+                    onSelect = function()
+                        SmashVehicleWindow(vehicle, windowIndex)
+                        lib.notify({
+                            title = 'Window Smashed',
+                            description = window.title .. ' broken',
+                            type = 'warning',
+                            duration = 2000
+                        })
+                    end
+                })
+            end
+            lib.registerContext({
+                id = 'SmashWindowMenu',
+                title = 'Select Window to Smash',
+                options = smashOptions,
+                menu = 'WindowControlsMenu'
+            })
+            lib.showContext('SmashWindowMenu')
+        end
+    })
+
+    lib.registerContext({
+        id = 'WindowControlsMenu',
+        title = 'Window Controls',
+        options = options,
+        menu = 'VehicleModMenu',
+        onBack = function()
+            TriggerEvent('vehiclemods:client:openVehicleModMenu')
+        end
+    })
+    lib.showContext('WindowControlsMenu')
+end
+
+-----------------------------------------------------------
+-- SEAT CONTROLS MENU
+-- Move between seats, eject passengers
+-----------------------------------------------------------
+function OpenSeatControlsMenu()
+    local playerPed = PlayerPedId()
+    local vehicle = GetVehiclePedIsIn(playerPed, false)
+
+    if vehicle == 0 then
+        lib.notify({
+            title = 'Error',
+            description = 'You must be in a vehicle',
+            type = 'error',
+            duration = 3000
+        })
+        return
+    end
+
+    local maxSeats = GetVehicleMaxNumberOfPassengers(vehicle)
+    local currentSeat = nil
+
+    -- Find current seat
+    for i = -1, maxSeats - 1 do
+        if GetPedInVehicleSeat(vehicle, i) == playerPed then
+            currentSeat = i
+            break
+        end
+    end
+
+    local seatNames = {
+        [-1] = 'Driver',
+        [0] = 'Front Passenger',
+        [1] = 'Rear Left',
+        [2] = 'Rear Right',
+        [3] = 'Seat 5',
+        [4] = 'Seat 6',
+        [5] = 'Seat 7',
+        [6] = 'Seat 8'
+    }
+
+    local options = {}
+
+    -- Current seat info
+    table.insert(options, {
+        title = 'Current Seat: ' .. (seatNames[currentSeat] or 'Unknown'),
+        description = 'You are in this seat',
+        icon = 'user',
+        disabled = true
+    })
+
+    -- Shuffle to different seats
+    for i = -1, maxSeats - 1 do
+        if i ~= currentSeat then
+            local seatIndex = i
+            local seatName = seatNames[i] or ('Seat ' .. (i + 2))
+            local occupant = GetPedInVehicleSeat(vehicle, i)
+            local isOccupied = occupant ~= 0 and occupant ~= playerPed
+
+            table.insert(options, {
+                title = 'Move to ' .. seatName,
+                description = isOccupied and 'Seat is occupied' or 'Click to move here',
+                icon = isOccupied and 'user-lock' or 'arrow-right',
+                disabled = isOccupied,
+                onSelect = function()
+                    if not isOccupied then
+                        SetPedIntoVehicle(playerPed, vehicle, seatIndex)
+                        lib.notify({
+                            title = 'Seat Changed',
+                            description = 'Moved to ' .. seatName,
+                            type = 'success',
+                            duration = 2000
+                        })
+                        Wait(500)
+                        OpenSeatControlsMenu()
+                    end
+                end
+            })
+        end
+    end
+
+    -- Passenger management section
+    table.insert(options, {
+        title = '── Passenger Management ──',
+        disabled = true
+    })
+
+    -- Eject passengers
+    local hasPassengers = false
+    for i = -1, maxSeats - 1 do
+        local occupant = GetPedInVehicleSeat(vehicle, i)
+        if occupant ~= 0 and occupant ~= playerPed then
+            hasPassengers = true
+            local seatIndex = i
+            local seatName = seatNames[i] or ('Seat ' .. (i + 2))
+            local isNPC = not IsPedAPlayer(occupant)
+
+            table.insert(options, {
+                title = 'Eject from ' .. seatName,
+                description = isNPC and 'Remove NPC from vehicle' or 'Remove player from vehicle',
+                icon = 'right-from-bracket',
+                onSelect = function()
+                    TaskLeaveVehicle(occupant, vehicle, 16)
+                    lib.notify({
+                        title = 'Passenger Ejected',
+                        description = 'Removed from ' .. seatName,
+                        type = 'warning',
+                        duration = 2000
+                    })
+                    Wait(1000)
+                    OpenSeatControlsMenu()
+                end
+            })
+        end
+    end
+
+    if not hasPassengers then
+        table.insert(options, {
+            title = 'No Passengers',
+            description = 'Vehicle has no other occupants',
+            icon = 'user-slash',
+            disabled = true
+        })
+    end
+
+    -- Eject all passengers
+    if hasPassengers then
+        table.insert(options, {
+            title = 'Eject All Passengers',
+            description = 'Remove everyone except driver',
+            icon = 'users-slash',
+            onSelect = function()
+                for i = 0, maxSeats - 1 do
+                    local occupant = GetPedInVehicleSeat(vehicle, i)
+                    if occupant ~= 0 and occupant ~= playerPed then
+                        TaskLeaveVehicle(occupant, vehicle, 16)
+                    end
+                end
+                lib.notify({
+                    title = 'All Passengers Ejected',
+                    description = 'Vehicle cleared',
+                    type = 'warning',
+                    duration = 2000
+                })
+                Wait(1000)
+                OpenSeatControlsMenu()
+            end
+        })
+    end
+
+    lib.registerContext({
+        id = 'SeatControlsMenu',
+        title = 'Seat Controls',
+        options = options,
+        menu = 'VehicleModMenu',
+        onBack = function()
+            TriggerEvent('vehiclemods:client:openVehicleModMenu')
+        end
+    })
+    lib.showContext('SeatControlsMenu')
 end
 
 -- Appearance Menu
@@ -2084,9 +2476,94 @@ CreateThread(function()
     end
 end)
 
--- Emergency Repair System
+-----------------------------------------------------------
+-- ENHANCED REPAIR SYSTEM
+-- Detailed damage assessment, component-specific repair,
+-- immersive animations, and engine health tracking
+-----------------------------------------------------------
+
+-- Get detailed vehicle damage report
+function GetVehicleDamageReport(vehicle)
+    local report = {
+        engineHealth = GetVehicleEngineHealth(vehicle),
+        bodyHealth = GetVehicleBodyHealth(vehicle),
+        tankHealth = GetVehiclePetrolTankHealth(vehicle),
+        dirtLevel = GetVehicleDirtLevel(vehicle),
+        tiresBurst = {},
+        windowsBroken = {},
+        doorsLost = {}
+    }
+
+    -- Check tires (0-3 for standard, 4-5 for bikes/6-wheelers)
+    for i = 0, 5 do
+        if IsVehicleTyreBurst(vehicle, i, false) then
+            table.insert(report.tiresBurst, i)
+        end
+    end
+
+    -- Check windows (0-7)
+    for i = 0, 7 do
+        if not IsVehicleWindowIntact(vehicle, i) then
+            table.insert(report.windowsBroken, i)
+        end
+    end
+
+    -- Check doors (0-5)
+    for i = 0, 5 do
+        if IsVehicleDoorDamaged(vehicle, i) then
+            table.insert(report.doorsLost, i)
+        end
+    end
+
+    -- Calculate overall condition percentage
+    local enginePct = math.max(0, report.engineHealth) / 10
+    local bodyPct = math.max(0, report.bodyHealth) / 10
+    local tankPct = math.max(0, report.tankHealth) / 10
+    report.overallCondition = math.floor((enginePct + bodyPct + tankPct) / 3)
+
+    -- Determine severity
+    if report.overallCondition > 70 then
+        report.severity = 'minor'
+        report.severityLabel = 'Minor Damage'
+    elseif report.overallCondition > 40 then
+        report.severity = 'moderate'
+        report.severityLabel = 'Moderate Damage'
+    elseif report.overallCondition > 15 then
+        report.severity = 'severe'
+        report.severityLabel = 'Severe Damage'
+    else
+        report.severity = 'critical'
+        report.severityLabel = 'Critical Damage'
+    end
+
+    return report
+end
+
+-- Format damage report for display
+function FormatDamageReport(report)
+    local lines = {}
+
+    table.insert(lines, ('**Overall Condition:** %d%%'):format(report.overallCondition))
+    table.insert(lines, ('**Status:** %s'):format(report.severityLabel))
+    table.insert(lines, '')
+    table.insert(lines, ('Engine: %d%%'):format(math.floor(math.max(0, report.engineHealth) / 10)))
+    table.insert(lines, ('Body: %d%%'):format(math.floor(math.max(0, report.bodyHealth) / 10)))
+    table.insert(lines, ('Fuel Tank: %d%%'):format(math.floor(math.max(0, report.tankHealth) / 10)))
+
+    if #report.tiresBurst > 0 then
+        table.insert(lines, ('Flat Tires: %d'):format(#report.tiresBurst))
+    end
+    if #report.windowsBroken > 0 then
+        table.insert(lines, ('Broken Windows: %d'):format(#report.windowsBroken))
+    end
+
+    return table.concat(lines, '\n')
+end
+
+-- Emergency Repair System (Enhanced)
 function EmergencyRepairVehicle()
-    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    local playerPed = PlayerPedId()
+    local vehicle = GetVehiclePedIsIn(playerPed, false)
 
     if vehicle == 0 then
         lib.notify({
@@ -2098,80 +2575,117 @@ function EmergencyRepairVehicle()
         return
     end
 
-    -- Check if vehicle is significantly damaged
-    local engineHealth = GetVehicleEngineHealth(vehicle)
-    local bodyHealth = GetVehicleBodyHealth(vehicle)
+    -- Get detailed damage report
+    local damage = GetVehicleDamageReport(vehicle)
 
-    if engineHealth > 500 and bodyHealth > 500 then
+    -- Check if vehicle needs repair
+    if damage.overallCondition > 70 then
         lib.notify({
             title = 'Emergency Repair',
-            description = 'Vehicle is not damaged enough to require emergency repair',
+            description = 'Vehicle condition is good (' .. damage.overallCondition .. '%). No emergency repair needed.',
             type = 'info',
             duration = 5000
         })
         return
     end
 
-    -- Show confirmation dialog
+    -- Show damage assessment dialog
     local alert = lib.alertDialog({
-        header = 'Emergency Repair',
-        content = 'This will partially repair your vehicle for emergency transport only. The vehicle will be slow and require full repair at a station. Continue?',
+        header = 'Emergency Repair - Damage Assessment',
+        content = FormatDamageReport(damage) .. '\n\n**Warning:** Emergency repair provides limited functionality. Vehicle will have reduced power (30%) until full repair.',
         centered = true,
-        cancel = true
+        cancel = true,
+        labels = {
+            confirm = 'Begin Emergency Repair',
+            cancel = 'Cancel'
+        }
     })
 
     if alert == 'confirm' then
-        -- Apply emergency repair
+        -- Exit vehicle for repair animation
+        local wasDriver = GetPedInVehicleSeat(vehicle, -1) == playerPed
+
+        TaskLeaveVehicle(playerPed, vehicle, 0)
+        Wait(2000)
+
+        -- Play repair animation with proper scenario
         lib.notify({
             title = 'Emergency Repair',
-            description = 'Applying emergency repairs... Please wait.',
+            description = 'Assessing damage and applying field repairs...',
             type = 'info',
             duration = 3000
         })
 
-        -- Repair animation/progress bar
-        if lib.progressBar({
-            duration = 10000,
-            label = 'Applying emergency repairs...',
-            useWhileDead = false,
-            canCancel = true,
-            disable = {
-                car = true,
-                move = true,
-                combat = true
-            },
-            anim = {
-                dict = 'mini@repair',
-                clip = 'fixing_a_ped'
-            }
-        }) then
-            -- Set vehicle to emergency repair state
-            SetVehicleEngineHealth(vehicle, 400.0) -- Enough to run but poorly
-            SetVehicleBodyHealth(vehicle, 600.0) -- Minimal body repair
-            SetVehiclePetrolTankHealth(vehicle, 750.0) -- Fix fuel tank
+        -- Multi-stage repair with progress
+        local repairStages = {
+            { label = 'Checking engine...', duration = 3000 },
+            { label = 'Patching fuel system...', duration = 2500 },
+            { label = 'Stabilizing components...', duration = 2500 },
+            { label = 'Testing systems...', duration = 2000 }
+        }
 
-            -- Reduce performance significantly
-            SetVehicleEnginePowerMultiplier(vehicle, 0.3) -- 30% power
-            SetVehicleEngineTorqueMultiplier(vehicle, 0.4) -- 40% torque
+        local repairSuccess = true
+        for _, stage in ipairs(repairStages) do
+            if not lib.progressBar({
+                duration = stage.duration,
+                label = stage.label,
+                useWhileDead = false,
+                canCancel = true,
+                disable = { move = true, combat = true },
+                anim = {
+                    dict = 'mini@repair',
+                    clip = 'fixing_a_ped'
+                }
+            }) then
+                repairSuccess = false
+                break
+            end
+        end
 
-            -- Set a flag to track emergency repair state
-            SetVehicleNumberPlateText(vehicle, "EMRG" .. math.random(100, 999))
+        if repairSuccess then
+            -- Apply emergency repairs
+            SetVehicleEngineHealth(vehicle, 450.0)
+            SetVehicleBodyHealth(vehicle, 650.0)
+            SetVehiclePetrolTankHealth(vehicle, 800.0)
+
+            -- Fix flat tires (critical for mobility)
+            for i = 0, 5 do
+                if IsVehicleTyreBurst(vehicle, i, false) then
+                    SetVehicleTyreFixed(vehicle, i)
+                end
+            end
+
+            -- Reduce performance (emergency mode)
+            SetVehicleEnginePowerMultiplier(vehicle, 0.3)
+            SetVehicleEngineTorqueMultiplier(vehicle, 0.4)
+            SetVehicleCheatPowerIncrease(vehicle, 0.0)
+
+            -- Ensure engine runs
+            SetVehicleEngineOn(vehicle, true, true, false)
+            SetVehicleUndriveable(vehicle, false)
+
+            -- Get back in vehicle
+            Wait(500)
+            TaskWarpPedIntoVehicle(playerPed, vehicle, wasDriver and -1 or 0)
+
+            -- Play success sound
+            PlaySoundFrontend(-1, "PICK_UP_WEAPON", "HUD_FRONTEND_CUSTOM_SOUNDSET", true)
 
             lib.notify({
                 title = 'Emergency Repair Complete',
-                description = 'Vehicle repaired for emergency transport. Seek full repair immediately.',
+                description = ('Vehicle at %d%% - Reduced power mode active. Seek full repair.'):format(
+                    math.floor((GetVehicleEngineHealth(vehicle) + GetVehicleBodyHealth(vehicle)) / 20)
+                ),
                 type = 'success',
                 duration = 8000
             })
 
-            TriggerEvent('vehiclemods:client:openVehicleModMenu')
-
-            -- Add a reminder notification after 30 seconds
-            SetTimeout(30000, function()
-                if DoesEntityExist(vehicle) then
+            -- Periodic reminders
+            SetTimeout(60000, function()
+                if DoesEntityExist(vehicle) and GetVehiclePedIsIn(playerPed, false) == vehicle then
                     lib.notify({
-                        title = 'Reminder',
-                        description = 'Your vehicle needs full repair at a station',
+                        title = 'Vehicle Warning',
+                        description = 'Emergency repairs are temporary. Full repair recommended.',
                         type = 'warning',
                         duration = 5000
                     })
@@ -2179,21 +2693,24 @@ function EmergencyRepairVehicle()
             end)
         else
             lib.notify({
-                title = 'Emergency Repair',
-                description = 'Repair cancelled',
+                title = 'Repair Cancelled',
+                description = 'Emergency repair was interrupted',
                 type = 'error',
                 duration = 3000
             })
-            TriggerEvent('vehiclemods:client:openVehicleModMenu')
+            TaskWarpPedIntoVehicle(playerPed, vehicle, wasDriver and -1 or 0)
         end
+
+        TriggerEvent('vehiclemods:client:openVehicleModMenu')
     else
         TriggerEvent('vehiclemods:client:openVehicleModMenu')
     end
 end
 
--- Full Repair Function (for use at stations)
+-- Full Repair Function (Enhanced)
 function FullRepairVehicle()
-    local vehicle = GetVehiclePedIsIn(PlayerPedId(), false)
+    local playerPed = PlayerPedId()
+    local vehicle = GetVehiclePedIsIn(playerPed, false)
 
     if vehicle == 0 then
         lib.notify({
@@ -2205,64 +2722,112 @@ function FullRepairVehicle()
         return
     end
 
-    -- Show confirmation dialog
+    -- Get detailed damage report
+    local damage = GetVehicleDamageReport(vehicle)
+
+    -- Calculate repair time based on damage
+    local baseTime = 8000
+    local extraTime = math.floor((100 - damage.overallCondition) * 100) -- More damage = longer repair
+    local totalTime = baseTime + extraTime
+
+    -- Show damage assessment
     local alert = lib.alertDialog({
         header = 'Full Vehicle Repair',
-        content = 'This will fully repair your vehicle and restore normal performance. Continue?',
+        content = FormatDamageReport(damage) .. ('\n\n**Estimated Repair Time:** %d seconds'):format(math.ceil(totalTime / 1000)),
         centered = true,
-        cancel = true
+        cancel = true,
+        labels = {
+            confirm = 'Begin Full Repair',
+            cancel = 'Cancel'
+        }
     })
 
     if alert == 'confirm' then
-        lib.notify({
-            title = 'Full Repair',
-            description = 'Performing full vehicle repair...',
-            type = 'info',
-            duration = 3000
-        })
+        -- Exit vehicle for full repair
+        local wasDriver = GetPedInVehicleSeat(vehicle, -1) == playerPed
+        TaskLeaveVehicle(playerPed, vehicle, 0)
+        Wait(2000)
 
-        -- Full repair animation/progress bar
-        if lib.progressBar({
-            duration = 15000,
-            label = 'Performing full repair...',
-            useWhileDead = false,
-            canCancel = true,
-            disable = {
-                car = true,
-                move = true,
-                combat = true
-            },
-            anim = {
-                dict = 'mini@repair',
-                clip = 'fixing_a_ped'
-            }
-        }) then
-            -- Fully repair the vehicle
+        -- Multi-stage full repair
+        local stages = {
+            { label = 'Diagnosing vehicle systems...', duration = math.floor(totalTime * 0.15) },
+            { label = 'Repairing engine components...', duration = math.floor(totalTime * 0.25) },
+            { label = 'Fixing body damage...', duration = math.floor(totalTime * 0.20) },
+            { label = 'Replacing damaged parts...', duration = math.floor(totalTime * 0.20) },
+            { label = 'Calibrating systems...', duration = math.floor(totalTime * 0.10) },
+            { label = 'Final inspection...', duration = math.floor(totalTime * 0.10) }
+        }
+
+        local repairSuccess = true
+        for i, stage in ipairs(stages) do
+            if not lib.progressBar({
+                duration = stage.duration,
+                label = stage.label,
+                useWhileDead = false,
+                canCancel = true,
+                disable = { move = true, combat = true },
+                anim = {
+                    dict = 'mini@repair',
+                    clip = 'fixing_a_ped'
+                }
+            }) then
+                repairSuccess = false
+                break
+            end
+
+            -- Incremental repair during process
+            if i == 2 then
+                SetVehicleEngineHealth(vehicle, 1000.0)
+            elseif i == 3 then
+                SetVehicleBodyHealth(vehicle, 1000.0)
+            elseif i == 4 then
+                -- Fix all tires
+                for t = 0, 5 do SetVehicleTyreFixed(vehicle, t) end
+                -- Fix all windows
+                for w = 0, 7 do FixVehicleWindow(vehicle, w) end
+            end
+        end
+
+        if repairSuccess then
+            -- Complete full repair
             SetVehicleFixed(vehicle)
             SetVehicleDeformationFixed(vehicle)
+            SetVehicleDirtLevel(vehicle, 0.0)
+            SetVehicleEngineHealth(vehicle, 1000.0)
+            SetVehicleBodyHealth(vehicle, 1000.0)
+            SetVehiclePetrolTankHealth(vehicle, 1000.0)
+
+            -- Restore full performance
+            SetVehicleEnginePowerMultiplier(vehicle, 1.0)
+            SetVehicleEngineTorqueMultiplier(vehicle, 1.0)
             SetVehicleUndriveable(vehicle, false)
             SetVehicleEngineOn(vehicle, true, true, false)
 
-            -- Restore normal performance
-            SetVehicleEnginePowerMultiplier(vehicle, 1.0)
-            SetVehicleEngineTorqueMultiplier(vehicle, 1.0)
+            -- Get back in vehicle
+            Wait(500)
+            TaskWarpPedIntoVehicle(playerPed, vehicle, wasDriver and -1 or 0)
+
+            -- Success sound
+            PlaySoundFrontend(-1, "SHOOTING_RANGE_ROUND_OVER", "HUD_AWARDS", true)
 
             lib.notify({
                 title = 'Full Repair Complete',
-                description = 'Vehicle has been fully repaired and is ready for service',
+                description = 'Vehicle restored to 100% condition. All systems operational.',
                 type = 'success',
                 duration = 5000
             })
-            TriggerEvent('vehiclemods:client:openVehicleModMenu')
         else
+            -- Partial repair if cancelled mid-way
             lib.notify({
-                title = 'Full Repair',
-                description = 'Repair cancelled',
-                type = 'error',
-                duration = 3000
+                title = 'Repair Interrupted',
+                description = 'Partial repairs applied. Some damage may remain.',
+                type = 'warning',
+                duration = 4000
             })
-            TriggerEvent('vehiclemods:client:openVehicleModMenu')
+            TaskWarpPedIntoVehicle(playerPed, vehicle, wasDriver and -1 or 0)
         end
+
+        TriggerEvent('vehiclemods:client:openVehicleModMenu')
     else
         TriggerEvent('vehiclemods:client:openVehicleModMenu')
     end
