@@ -12,6 +12,104 @@ local QBCore = nil
 local currentFramework = nil
 local frameworkObject = nil
 
+-----------------------------------------------------------
+-- VERSION CHECKER (v2.1.0+)
+-- Checks for updates on resource start via raw.githubusercontent.com
+-- Only notifies admins via ACE permissions
+-----------------------------------------------------------
+local currentVersion = GetResourceMetadata(GetCurrentResourceName(), 'version', 0)
+local githubRepo = "DaemonAlex/EmergencyVehicleMenu"
+local updateAvailable = false
+local latestVersionCached = nil
+
+local function CompareVersions(current, latest)
+    -- Parse semantic versions (handles formats like "2.1.0" or "2.1.0-DSRP")
+    local function parseVersion(v)
+        local major, minor, patch = v:match("^(%d+)%.(%d+)%.(%d+)")
+        return tonumber(major) or 0, tonumber(minor) or 0, tonumber(patch) or 0
+    end
+
+    local curMajor, curMinor, curPatch = parseVersion(current)
+    local latMajor, latMinor, latPatch = parseVersion(latest)
+
+    if latMajor > curMajor then return true end
+    if latMajor == curMajor and latMinor > curMinor then return true end
+    if latMajor == curMajor and latMinor == curMinor and latPatch > curPatch then return true end
+
+    return false
+end
+
+local function CheckVersion()
+    local url = ('https://raw.githubusercontent.com/%s/main/fxmanifest.lua'):format(githubRepo)
+
+    PerformHttpRequest(url, function(status, text, headers)
+        if status ~= 200 then
+            if Config.Debug then
+                print(("^3[VERSION-CHECK]:^0 Failed to check for updates (HTTP %d)"):format(status))
+            end
+            return
+        end
+
+        -- Extract version from fxmanifest.lua content
+        local latestVersion = text:match("version ['\"]([%d%.]+)")
+
+        if not latestVersion then
+            if Config.Debug then
+                print("^3[VERSION-CHECK]:^0 Could not parse version from GitHub")
+            end
+            return
+        end
+
+        latestVersionCached = latestVersion
+
+        if CompareVersions(currentVersion, latestVersion) then
+            updateAvailable = true
+            print("^3╔══════════════════════════════════════════════════════════╗^0")
+            print("^3║^1  [EmergencyVehicleMenu] UPDATE AVAILABLE!               ^3║^0")
+            print(("^3║^0  Current: ^1%s^0 | Latest: ^2%s^0                       ^3║^0"):format(
+                currentVersion:sub(1, 10), latestVersion:sub(1, 10)))
+            print(("^3║^5  https://github.com/%s  ^3║^0"):format(githubRepo))
+            print("^3╚══════════════════════════════════════════════════════════╝^0")
+        else
+            print(("^2[VERSION-CHECK]:^0 EmergencyVehicleMenu v%s is up to date"):format(currentVersion))
+        end
+    end, 'GET')
+end
+
+-- Notify admin when they join if update is available
+local function NotifyAdminOfUpdate(playerId)
+    if not updateAvailable then return end
+
+    -- Check if player has admin ACE permission
+    if not IsPlayerAceAllowed(playerId, 'command') then return end
+
+    -- Delay notification slightly so it doesn't get lost in join spam
+    SetTimeout(5000, function()
+        TriggerClientEvent('ox_lib:notify', playerId, {
+            title = 'EmergencyVehicleMenu Update',
+            description = ('v%s available (current: %s)'):format(
+                latestVersionCached or "?.?.?",
+                currentVersion
+            ),
+            type = 'warning',
+            duration = 10000,
+            icon = 'download'
+        })
+    end)
+end
+
+-- Check version on resource start
+AddEventHandler('onResourceStart', function(resourceName)
+    if GetCurrentResourceName() ~= resourceName then return end
+    CheckVersion()
+end)
+
+-- Notify admins when they join
+AddEventHandler('playerJoining', function()
+    local src = source
+    NotifyAdminOfUpdate(src)
+end)
+
 -- Initialize framework
 CreateThread(function()
     Wait(1000) -- Wait for resources to load
