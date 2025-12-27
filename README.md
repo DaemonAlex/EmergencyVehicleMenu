@@ -274,4 +274,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Original concept and code vy @daemonalex** 🚀
+**Original concept and code by @daemonalex** 🚀
