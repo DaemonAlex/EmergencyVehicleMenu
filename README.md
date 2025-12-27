@@ -274,4 +274,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Ready to revolutionize your emergency vehicle system? Install now and experience zero-configuration perfection!** 🚀
+**Original concept and code vy @daemonalex** 🚀
